@@ -20,25 +20,14 @@ class Converter:
             raise FileNotFoundError(f"File {self.filename} not found")
         try:
             self.matrix = pd.read_table(self.filename)
+            # would be nice to compare the first row to other rows to see if it's probably a header or not.
+            # compare types?
             print(self.matrix.head())
         except Exception as e:
             print(f"Error: {e}")
 
     def __str__(self):
         return f"{self.filename}"
-
-
-@app.command()
-def hello(name: str):
-    print(f"Hello {name}")
-
-
-@app.command()
-def goodbye(name: str, formal: bool = False):
-    if formal:
-        print(f"Goodbye Mx. {name}")
-    else:
-        print(f"Goodbye {name}")
 
 
 @app.command()
