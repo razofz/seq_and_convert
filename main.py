@@ -8,7 +8,7 @@ app = typer.Typer()
 
 class Converter:
     def __init__(
-        self, filename: str, from_format, to_format, output_dir: str = "."
+        self, filename: str, from_format: str, to_format: str, output_dir: str = "."
     ):
         self.filename = filename
         self.from_format = from_format
