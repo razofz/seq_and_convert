@@ -8,7 +8,7 @@ app = typer.Typer()
 
 class Converter:
     def __init__(
-        self, filename: list[str], from_format, to_format, output_dir: str = "."
+        self, filename: str, from_format, to_format, output_dir: str = "."
     ):
         self.filename = filename
         self.from_format = from_format
@@ -16,17 +16,13 @@ class Converter:
         self.output_dir = output_dir
         if not self.filename:
             raise ValueError("No filename provided")
-        elif len(self.filename) < 1:
-            raise ValueError("No filename provided")
-        elif len(self.filename) == 1:
-            # potentially csv
-            if not Path(self.filename[0]).exists():
-                raise FileNotFoundError(f"File {self.filename[0]} not found")
-            try:
-                self.matrix = pd.read_table(self.filename[0], header=None)
-                print(self.matrix.head())
-            except Exception as e:
-                print(f"Error: {e}")
+        if not Path(self.filename).exists():
+            raise FileNotFoundError(f"File {self.filename} not found")
+        try:
+            self.matrix = pd.read_table(self.filename)
+            print(self.matrix.head())
+        except Exception as e:
+            print(f"Error: {e}")
 
     def __str__(self):
         return f"{self.filename}"
@@ -47,7 +43,7 @@ def goodbye(name: str, formal: bool = False):
 
 @app.command()
 def convert(
-    filename: list[str],
+    filename: str,
     from_format: Annotated[
         str, typer.Option("--from", help="The format to convert from")
     ],
