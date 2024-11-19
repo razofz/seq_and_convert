@@ -7,7 +7,7 @@ file types for different scRNA-seq toolkits: Seurat (SeuratH5, Rdata), scanpy (h
 Vision is for usage in the style of:
 
 ```bash
-╭─  ~/code/seq_and_convert  on   main !1 ?8 
+╭─ ~/code/seq_and_convert
 ╰─ saq data/GSE164073_raw_counts_GRCh38.p13_NCBI.tsv -d output --from tsv --to mtx
 ```
 
