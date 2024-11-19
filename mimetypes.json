@@ -1,0 +1,58 @@
+{
+    "mtx": {
+        "magic": "ASCII text",
+        "magic_mime": "text/plain",
+        "mimetype_guess_type": null,
+        "mimetype_guess_encoding": null,
+        "Path_suffix": ".mtx",
+        "splitext": ".mtx"
+    },
+    "mtx.gz": {
+        "magic": "gzip compressed data, max speed, original size modulo 2^32 2130017319",
+        "magic_mime": "application/gzip",
+        "mimetype_guess_type": null,
+        "mimetype_guess_encoding": "gzip",
+        "Path_suffix": ".gz",
+        "splitext": ".gz"
+    },
+    "csv": {
+        "magic": "CSV text",
+        "magic_mime": "application/csv",
+        "mimetype_guess_type": "text/csv",
+        "mimetype_guess_encoding": null,
+        "Path_suffix": ".csv",
+        "splitext": ".csv"
+    },
+    "tsv": {
+        "magic": "ASCII text",
+        "magic_mime": "text/plain",
+        "mimetype_guess_type": "text/tab-separated-values",
+        "mimetype_guess_encoding": null,
+        "Path_suffix": ".tsv",
+        "splitext": ".tsv"
+    },
+    "tsv.gz": {
+        "magic": "gzip compressed data, original size modulo 2^32 1375045",
+        "magic_mime": "application/gzip",
+        "mimetype_guess_type": "text/tab-separated-values",
+        "mimetype_guess_encoding": "gzip",
+        "Path_suffix": ".gz",
+        "splitext": ".gz"
+    },
+    "h5ad": {
+        "magic": "Hierarchical Data Format (version 5) data",
+        "magic_mime": "application/x-hdf",
+        "mimetype_guess_type": null,
+        "mimetype_guess_encoding": null,
+        "Path_suffix": ".h5ad",
+        "splitext": ".h5ad"
+    },
+    "h5": {
+        "magic": "Hierarchical Data Format (version 5) data",
+        "magic_mime": "application/x-hdf",
+        "mimetype_guess_type": "application/x-hdf5",
+        "mimetype_guess_encoding": null,
+        "Path_suffix": ".h5",
+        "splitext": ".h5"
+    }
+}

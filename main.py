@@ -2,6 +2,9 @@ import typer
 from typing_extensions import Annotated
 import pandas as pd
 from pathlib import Path
+import magic
+import mimetypes
+import json
 
 app = typer.Typer()
 
@@ -14,11 +17,20 @@ class Converter:
         self.from_format = from_format
         self.to_format = to_format
         self.output_dir = output_dir
+        self.lookup_table = json.load(open("mimetypes.json", "r"))
+        self.filetype_checks = [
+            "magic",
+            "magic_mime",
+            "mimetype_guess_type",
+            "mimetype_guess_encoding",
+            "Path_suffix",
+        ]
         if not self.filename:
             raise ValueError("No filename provided")
         if not Path(self.filename).exists():
             raise FileNotFoundError(f"File {self.filename} not found")
         try:
+            print(self.decide_filetype())
             self.matrix = pd.read_table(self.filename)
             # would be nice to compare the first row to other rows to see if it's probably a header or not.
             # compare types?
@@ -28,6 +40,38 @@ class Converter:
 
     def __str__(self):
         return f"{self.filename}"
+
+    def decide_filetype(self):
+        if Path(self.filename).is_dir():
+            ...
+        else:
+            found = False
+            while not found:
+                for key in self.lookup_table:
+                    eligible = True
+                    # limit = len(self.filetype_checks)
+                    # i = 0
+                    while eligible:
+                        if (
+                            not self.lookup_table[key]["Path_suffix"]
+                            == Path(self.filename).suffix
+                        ):
+                            eligible = False
+                    if eligible:
+                        return key
+
+        suffix = Path(self.filename).suffix
+        if suffix == "." + self.from_format:
+            print(f"File {self.filename} is a {self.from_format} file")
+        print(magic.from_file(self.filename))
+        print(magic.from_file(self.filename, mime=True))
+        # filetype, encoding = mimetypes.guess_type(self.filename)
+        # if filetype is not None:
+        #     ...
+        # if encoding is not None:
+        #     ...
+        # if Path(self.filename).is_dir():
+        #     ...  # directory
 
 
 @app.command()
