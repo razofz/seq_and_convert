@@ -45,7 +45,8 @@ class Converter:
 
     def decide_filetype(self):
         if Path(self.filename).is_dir():
-            ...
+            dir_files = [f for f in Path(self.filename).iterdir() if f.is_file()]
+            print(dir_files)
         else:
             for key in self.lookup_table:
                 eligible = True
@@ -83,19 +84,6 @@ class Converter:
                     return key
         return None
 
-        # suffix = Path(self.filename).suffix
-        # if suffix == "." + self.from_format:
-        #     print(f"File {self.filename} is a {self.from_format} file")
-        # print(magic.from_file(self.filename))
-        # print(magic.from_file(self.filename, mime=True))
-        # filetype, encoding = mimetypes.guess_type(self.filename)
-        # if filetype is not None:
-        #     ...
-        # if encoding is not None:
-        #     ...
-        # if Path(self.filename).is_dir():
-        #     ...  # directory
-
 
 @app.command()
 def convert(
@@ -123,8 +111,8 @@ def convert(
     Returns:
         bool: True if the conversion was successful, False otherwise.
     """
-    print(f"{filename}, {len(filename)=}, {type(filename)=}")
-    print(Converter(filename, from_format, to_format, output_dir))
+    # print(f"{filename}, {len(filename)=}, {type(filename)=}")
+    Converter(filename, from_format, to_format, output_dir)
 
 
 if __name__ == "__main__":
