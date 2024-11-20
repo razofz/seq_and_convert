@@ -30,11 +30,13 @@ class Converter:
         if not Path(self.filename).exists():
             raise FileNotFoundError(f"File {self.filename} not found")
         try:
-            print(self.decide_filetype())
-            self.matrix = pd.read_table(self.filename)
+            ft = self.decide_filetype()
+            if ft is not None:
+                print(f"File {self.filename} seems to be a {ft} file")
+            # self.matrix = pd.read_table(self.filename)
             # would be nice to compare the first row to other rows to see if it's probably a header or not.
             # compare types?
-            print(self.matrix.head())
+            # print(self.matrix.head())
         except Exception as e:
             print(f"Error: {e}")
 
@@ -45,26 +47,47 @@ class Converter:
         if Path(self.filename).is_dir():
             ...
         else:
-            found = False
-            while not found:
-                for key in self.lookup_table:
-                    eligible = True
-                    # limit = len(self.filetype_checks)
-                    # i = 0
-                    while eligible:
-                        if (
-                            not self.lookup_table[key]["Path_suffix"]
-                            == Path(self.filename).suffix
-                        ):
-                            eligible = False
-                    if eligible:
-                        return key
+            for key in self.lookup_table:
+                eligible = True
+                if not self.lookup_table[key]["magic_mime"] == magic.from_file(
+                    self.filename, mime=True
+                ):
+                    eligible = False
+                if (
+                    not self.lookup_table[key]["mimetype_guess_encoding"]
+                    == mimetypes.guess_type(self.filename)[1]
+                ):
+                    eligible = False
+                if (
+                    not self.lookup_table[key]["mimetype_guess_type"]
+                    == mimetypes.guess_type(self.filename)[0]
+                ):
+                    eligible = False
+                if (
+                    not self.lookup_table[key]["Path_suffix"]
+                    == Path(self.filename).suffix
+                ):
+                    eligible = False
+                if self.from_format == "gz":
+                    if (
+                        not self.lookup_table[key]["magic"].split(",")[0]
+                        == magic.from_file(self.filename).split(",")[0]
+                    ):
+                        eligible = False
+                else:
+                    if not self.lookup_table[key]["magic"] == magic.from_file(
+                        self.filename
+                    ):
+                        eligible = False
+                if eligible:
+                    return key
+        return None
 
-        suffix = Path(self.filename).suffix
-        if suffix == "." + self.from_format:
-            print(f"File {self.filename} is a {self.from_format} file")
-        print(magic.from_file(self.filename))
-        print(magic.from_file(self.filename, mime=True))
+        # suffix = Path(self.filename).suffix
+        # if suffix == "." + self.from_format:
+        #     print(f"File {self.filename} is a {self.from_format} file")
+        # print(magic.from_file(self.filename))
+        # print(magic.from_file(self.filename, mime=True))
         # filetype, encoding = mimetypes.guess_type(self.filename)
         # if filetype is not None:
         #     ...
