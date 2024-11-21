@@ -26,17 +26,18 @@ class Converter:
             "mimetype_guess_encoding",
             "Path_suffix",
         ]
+        self.matrix = None
         if not self.filename:
             raise ValueError("No filename provided")
         if not Path(self.filename).exists():
             raise FileNotFoundError(f"File {self.filename} not found")
         try:
             ft = self.decide_filetype()
-            if ft is not None:
-                print(f"File {self.filename} seems to be a {ft} file")
         except Exception as e:
             print(f"Error: {e}")
-        self.convert()
+        if ft is not None:
+            print(f"File {self.filename} seems to be a {ft} file")
+            self.convert()
 
     def __str__(self):
         return f"{self.filename}"
@@ -116,10 +117,11 @@ class Converter:
                 if i != j:
                     if self.matrix.columns[i] == self.matrix.columns[j].split(".")[0]:
                         raise ValueError(
-                            "Column names are not unique, please check cell barcodes.\n" +
-                            f"Column {i}: {self.matrix.columns[i]}\n" +
-                            f"Column {j}: {self.matrix.columns[j]}"
+                            "Column names are not unique, please check cell barcodes, e.g.\n"
+                            + f"Column {i}: {self.matrix.columns[i]}\n"
+                            + f"Column {j}: {self.matrix.columns[j]}"
                         )
+                        # just the first case of identical barcodes for now
 
         print(self.matrix.head())
         # write file
