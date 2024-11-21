@@ -34,10 +34,6 @@ class Converter:
             ft = self.decide_filetype()
             if ft is not None:
                 print(f"File {self.filename} seems to be a {ft} file")
-            # self.matrix = pd.read_table(self.filename)
-            # would be nice to compare the first row to other rows to see if it's probably a header or not.
-            # compare types?
-            # print(self.matrix.head())
         except Exception as e:
             print(f"Error: {e}")
 
@@ -98,8 +94,12 @@ class Converter:
     def mtx_to_csv(self):
         pass
 
+    # could handle both tsv and csv here. xsv?
     def csv_to_mtx(self):
-        pass
+        self.matrix = pd.read_table(self.filename)
+        # would be nice to compare the first row to other rows to see if it's
+        # probably a header or not. compare types?
+        print(self.matrix.head())
 
 
 @app.command()
