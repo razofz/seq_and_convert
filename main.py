@@ -5,6 +5,7 @@ from pathlib import Path
 import magic
 import mimetypes
 import json
+from scipy.io import mmread
 
 app = typer.Typer()
 
@@ -83,6 +84,22 @@ class Converter:
                 if eligible:
                     return key
         return None
+
+    def convert(self):
+        if self.from_format == "csv" and self.to_format == "mtx":
+            self.csv_to_mtx()
+        elif self.from_format == "mtx" and self.to_format == "csv":
+            self.mtx_to_csv()
+        else:
+            raise NotImplementedError(
+                f"Conversion from {self.from_format} to {self.to_format} is not yet implemented"
+            )
+
+    def mtx_to_csv(self):
+        pass
+
+    def csv_to_mtx(self):
+        pass
 
 
 @app.command()
