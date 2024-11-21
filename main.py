@@ -36,6 +36,7 @@ class Converter:
                 print(f"File {self.filename} seems to be a {ft} file")
         except Exception as e:
             print(f"Error: {e}")
+        self.convert()
 
     def __str__(self):
         return f"{self.filename}"
@@ -96,10 +97,32 @@ class Converter:
 
     # could handle both tsv and csv here. xsv?
     def csv_to_mtx(self):
-        self.matrix = pd.read_table(self.filename)
-        # would be nice to compare the first row to other rows to see if it's
-        # probably a header or not. compare types?
+        try:
+            self.matrix = pd.read_csv(self.filename)
+        except Exception as e:
+            print(f"Error: {e}")
+        # pot. unnecessary all if case, let's see
+        if (self.matrix.dtypes == object).any():
+            if (self.matrix.dtypes == object).all():
+                # probably a header row read in as first row, redo
+                self.matrix = pd.read_csv(self.filename, header=0)
+            elif pd.api.types.is_dtype_equal(
+                self.matrix.dtypes.iloc[0], pd.api.types.pandas_dtype("object")
+            ):
+                # probably rownames/index read in as first column, redo
+                self.matrix = pd.read_csv(self.filename, index_col=0)
+        for i in range(len(self.matrix.columns)):
+            for j in range(len(self.matrix.columns)):
+                if i != j:
+                    if self.matrix.columns[i] == self.matrix.columns[j].split(".")[0]:
+                        raise ValueError(
+                            "Column names are not unique, please check cell barcodes.\n" +
+                            f"Column {i}: {self.matrix.columns[i]}\n" +
+                            f"Column {j}: {self.matrix.columns[j]}"
+                        )
+
         print(self.matrix.head())
+        # write file
 
 
 @app.command()
