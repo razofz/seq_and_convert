@@ -41,6 +41,37 @@ def test_converter_decide_filetype_fake_files():
     assert c.decide_filetype() is None
 
 
-def test_converter_convert_csv_to_mtx():
+def test_converter_convert_csv_to_mtx(tmp_path):
     with pytest.raises(ValueError):
-        c = Converter("test_files/pbmc1k_subset_identical_colnames.csv", from_format="csv", to_format="mtx")
+        Converter(
+            "test_files/pbmc1k_subset_identical_colnames.csv",
+            from_format="csv",
+            to_format="mtx",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset.csv",
+            from_format="csv",
+            to_format="mtx",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            "test_files/pbmc1k_subset.csv",
+            from_format="csv",
+            to_format="mtx",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset.csv",
+            from_format="csv",
+            to_format="mtx",
+            output_dir=tmp_path,
+            force=True,
+        ).convert()
+        is True
+    )

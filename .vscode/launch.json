@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "python",
+            "request": "launch",
+            "name": "Debug main.py",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "test_files/pbmc1k_subset.csv",
+                "-d", "sandbox",
+                "--from", "csv",
+                "--to", "mtx",
+                "--force"
+            ]
+        }
+    ]
+}

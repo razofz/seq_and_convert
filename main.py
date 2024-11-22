@@ -5,19 +5,26 @@ from pathlib import Path
 import magic
 import mimetypes
 import json
-from scipy.io import mmread
+from scipy.io import mmread, mmwrite
+from scipy.sparse import coo_matrix
 
 app = typer.Typer()
 
 
 class Converter:
     def __init__(
-        self, filename: str, from_format: str, to_format: str, output_dir: str = "."
+        self,
+        filename: str,
+        from_format: str,
+        to_format: str,
+        force: bool = False,
+        output_dir: str = ".",
     ):
         self.filename = filename
         self.from_format = from_format
         self.to_format = to_format
         self.output_dir = output_dir
+        self.force = force
         self.lookup_table = json.load(open("mimetypes.json", "r"))
         self.filetype_checks = [
             "magic",
@@ -37,7 +44,7 @@ class Converter:
             print(f"Error: {e}")
         if ft is not None:
             print(f"File {self.filename} seems to be a {ft} file")
-            self.convert()
+            # return self.convert()
 
     def __str__(self):
         return f"{self.filename}"
@@ -85,9 +92,9 @@ class Converter:
 
     def convert(self):
         if self.from_format == "csv" and self.to_format == "mtx":
-            self.csv_to_mtx()
+            return self.csv_to_mtx()
         elif self.from_format == "mtx" and self.to_format == "csv":
-            self.mtx_to_csv()
+            return self.mtx_to_csv()
         else:
             raise NotImplementedError(
                 f"Conversion from {self.from_format} to {self.to_format} is not yet implemented"
@@ -123,8 +130,22 @@ class Converter:
                         )
                         # just the first case of identical barcodes for now
 
-        print(self.matrix.head())
-        # write file
+        # print(self.matrix.head())
+        mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
+        try:
+            Path.mkdir(Path(mtx_output_dir), parents=True, exist_ok=self.force)
+        except FileExistsError as e:
+            print(
+                f"Directory {mtx_output_dir} already exists."
+                + " Select a different output directory or use --force/-f."
+            )
+            raise e
+        mmwrite(target=mtx_output_dir / Path("matrix.mtx"), a=coo_matrix(self.matrix))
+        with open(mtx_output_dir / Path("features.tsv"), "w") as f:
+            f.write("\n".join(self.matrix.index))
+        with open(mtx_output_dir / Path("barcodes.tsv"), "w") as f:
+            f.write("\n".join(self.matrix.columns))
+        return True
 
 
 @app.command()
@@ -140,6 +161,9 @@ def convert(
             "--output-dir", "-d", help="Which directory/folder to output files into."
         ),
     ] = ".",
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Overwrite existing files")
+    ] = False,
 ) -> bool:
     """
     Convert files from one format to another and save them to the specified output directory.
@@ -154,7 +178,15 @@ def convert(
         bool: True if the conversion was successful, False otherwise.
     """
     # print(f"{filename}, {len(filename)=}, {type(filename)=}")
-    Converter(filename, from_format, to_format, output_dir)
+    # print(f"{filename=}, {from_format=}, {to_format=}, {output_dir=}, {force=}")
+    c = Converter(
+        filename=filename,
+        from_format=from_format,
+        to_format=to_format,
+        output_dir=output_dir,
+        force=force,
+    )
+    return c.convert()
 
 
 if __name__ == "__main__":
