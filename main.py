@@ -7,6 +7,7 @@ import mimetypes
 import json
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
+import sys
 
 app = typer.Typer()
 
@@ -34,6 +35,9 @@ class Converter:
             "Path_suffix",
         ]
         self.matrix = None
+        self.mtx = None
+        self.barcodes = None
+        self.features = None
         if not self.filename:
             raise ValueError("No filename provided")
         if not Path(self.filename).exists():
@@ -42,6 +46,7 @@ class Converter:
             ft = self.decide_filetype()
         except Exception as e:
             print(f"Error: {e}")
+            raise e
         if ft is not None:
             print(f"File {self.filename} seems to be a {ft} file")
             # return self.convert()
@@ -50,38 +55,33 @@ class Converter:
         return f"{self.filename}"
 
     def decide_filetype(self):
-        def control_filetype():
+        def control_filetype(filename):
             for key in self.lookup_table:
                 eligible = True
                 if not self.lookup_table[key]["magic_mime"] == magic.from_file(
-                    self.filename, mime=True
+                    filename, mime=True
                 ):
                     eligible = False
                 if (
                     not self.lookup_table[key]["mimetype_guess_encoding"]
-                    == mimetypes.guess_type(self.filename)[1]
+                    == mimetypes.guess_type(filename)[1]
                 ):
                     eligible = False
                 if (
                     not self.lookup_table[key]["mimetype_guess_type"]
-                    == mimetypes.guess_type(self.filename)[0]
+                    == mimetypes.guess_type(filename)[0]
                 ):
                     eligible = False
-                if (
-                    not self.lookup_table[key]["Path_suffix"]
-                    == Path(self.filename).suffix
-                ):
+                if not self.lookup_table[key]["Path_suffix"] == Path(filename).suffix:
                     eligible = False
                 if self.from_format == "gz":
                     if (
                         not self.lookup_table[key]["magic"].split(",")[0]
-                        == magic.from_file(self.filename).split(",")[0]
+                        == magic.from_file(filename).split(",")[0]
                     ):
                         eligible = False
                 else:
-                    if not self.lookup_table[key]["magic"] == magic.from_file(
-                        self.filename
-                    ):
+                    if not self.lookup_table[key]["magic"] == magic.from_file(filename):
                         eligible = False
                 if eligible:
                     return key
@@ -89,9 +89,51 @@ class Converter:
 
         if Path(self.filename).is_dir():
             dir_files = [f for f in Path(self.filename).iterdir() if f.is_file()]
-            print(dir_files)
+            if len(dir_files) == 0:
+                raise FileNotFoundError(f"No files found in directory {self.filename}")
+            elif len(dir_files) != 3:
+                raise ValueError(
+                    f"Wrong number of files in directory {self.filename}, "
+                    + "expected 3 files '10X style' "
+                    + "(matrix.mtx, features.tsv, barcodes.tsv)"
+                    + "(could also be compressed, e.g. matrix.mtx.gz)"
+                )
+            filetypes = [control_filetype(f) for f in dir_files]
+            print(filetypes)
+            mtx = None
+            features = None
+            barcodes = None
+            if sum([f == ".gz" for f in filetypes]) > 0:
+                for f in filetypes:
+                    guessed_type = mimetypes.guess_type(f)[0]
+                    if guessed_type is None:
+                        mtx = dir_files[filetypes.index(f)]
+                    if guessed_type == "text/tab-separated-values":
+                        if (
+                            Path(dir_files[filetypes.index(f)]).stem == "features"
+                            or Path(dir_files[filetypes.index(f)]).stem == "genes"
+                        ):
+                            features = dir_files[filetypes.index(f)]
+                        elif Path(dir_files[filetypes.index(f)]).stem == "barcodes":
+                            barcodes = dir_files[filetypes.index(f)]
+            else:
+                for f in filetypes:
+                    if f == "mtx":
+                        mtx = dir_files[filetypes.index(f)]
+                    elif f == "tsv":
+                        if (
+                            Path(dir_files[filetypes.index(f)]).stem == "features"
+                            or Path(dir_files[filetypes.index(f)]).stem == "genes"
+                        ):
+                            features = dir_files[filetypes.index(f)]
+                        elif Path(dir_files[filetypes.index(f)]).stem == "barcodes":
+                            barcodes = dir_files[filetypes.index(f)]
+            self.mtx = mtx
+            self.barcodes = barcodes
+            self.features = features
+            return "10x"
         else:
-            key = control_filetype()
+            key = control_filetype(self.filename)
             if key is not None:
                 return key
         return None
@@ -107,7 +149,10 @@ class Converter:
             )
 
     def mtx_to_csv(self):
-        pass
+        matrix = mmread(self.mtx)
+        barcodes = pd.read_table(self.barcodes, header=None)
+        features = pd.read_table(self.features)
+        return True
 
     # could handle both tsv and csv here. xsv?
     def csv_to_mtx(self):

@@ -2,15 +2,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "name": "Debug main.py",
+            "name": "Debug csv to mtx",
             "program": "${workspaceFolder}/main.py",
             "args": [
                 "test_files/pbmc1k_subset.csv",
                 "-d", "sandbox",
                 "--from", "csv",
                 "--to", "mtx",
+                "--force"
+            ]
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Debug mtx to csv",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "test_files/10x",
+                "-d", "sandbox",
+                "--from", "mtx",
+                "--to", "csv",
                 "--force"
             ]
         }
