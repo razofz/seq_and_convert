@@ -7,7 +7,6 @@ import mimetypes
 import json
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
-import sys
 
 app = typer.Typer()
 
@@ -95,7 +94,7 @@ class Converter:
                 raise ValueError(
                     f"Wrong number of files in directory {self.filename}, "
                     + "expected 3 files '10X style' "
-                    + "(matrix.mtx, features.tsv, barcodes.tsv)"
+                    + "(matrix.mtx, features.tsv, barcodes.tsv) "
                     + "(could also be compressed, e.g. matrix.mtx.gz)"
                 )
             filetypes = [control_filetype(f) for f in dir_files]
@@ -104,34 +103,34 @@ class Converter:
             features = None
             barcodes = None
             if sum([f == ".gz" for f in filetypes]) > 0:
-                for f in filetypes:
-                    guessed_type = mimetypes.guess_type(f)[0]
+                for i in range(len(filetypes)):
+                    guessed_type = mimetypes.guess_type(dir_files[i])[0]
                     if guessed_type is None:
-                        mtx = dir_files[filetypes.index(f)]
+                        mtx = dir_files[i]
                     if guessed_type == "text/tab-separated-values":
                         if (
-                            Path(dir_files[filetypes.index(f)]).stem == "features"
-                            or Path(dir_files[filetypes.index(f)]).stem == "genes"
+                            Path(dir_files[i]).stem == "features"
+                            or Path(dir_files[i]).stem == "genes"
                         ):
-                            features = dir_files[filetypes.index(f)]
-                        elif Path(dir_files[filetypes.index(f)]).stem == "barcodes":
-                            barcodes = dir_files[filetypes.index(f)]
+                            features = dir_files[i]
+                        elif Path(dir_files[i]).stem == "barcodes":
+                            barcodes = dir_files[i]
             else:
-                for f in filetypes:
-                    if f == "mtx":
-                        mtx = dir_files[filetypes.index(f)]
-                    elif f == "tsv":
+                for i in range(len(filetypes)):
+                    if filetypes[i] == "mtx":
+                        mtx = dir_files[i]
+                    elif filetypes[i] == "tsv":
                         if (
-                            Path(dir_files[filetypes.index(f)]).stem == "features"
-                            or Path(dir_files[filetypes.index(f)]).stem == "genes"
+                            Path(dir_files[i]).stem == "features"
+                            or Path(dir_files[i]).stem == "genes"
                         ):
-                            features = dir_files[filetypes.index(f)]
-                        elif Path(dir_files[filetypes.index(f)]).stem == "barcodes":
-                            barcodes = dir_files[filetypes.index(f)]
+                            features = dir_files[i]
+                        elif Path(dir_files[i]).stem == "barcodes":
+                            barcodes = dir_files[i]
             self.mtx = mtx
             self.barcodes = barcodes
             self.features = features
-            return "10x"
+            return "mtx"
         else:
             key = control_filetype(self.filename)
             if key is not None:
@@ -151,7 +150,55 @@ class Converter:
     def mtx_to_csv(self):
         matrix = mmread(self.mtx)
         barcodes = pd.read_table(self.barcodes, header=None)
-        features = pd.read_table(self.features)
+        assert barcodes.shape[0] == matrix.shape[1]
+        assert barcodes.shape[1] == 1
+        features = pd.read_table(self.features, header=None)
+        # lots of things to potentially check for features.
+        # could be a single column, could be lots of columns,
+        # could have the gene_id as the first column and gene_name as second,
+        # the other way around, or in another order entirely.
+        # To solve this we could have a sample set of gene ids and names,
+        # and check if they exist in one of the columns.
+        # Feels a bit clunky, but a better heuristic than nothing, I guess.
+        # Let's do some simplification for now, let's assume the id and name
+        # are in one of the first two columns and select one of them.
+        assert features.shape[0] == matrix.shape[0]
+        mtx_feats = None
+        if features.shape[1] == 1:
+            mtx_feats = features[0]
+        else:
+            # using a very bad heuristic for now..
+            if features.iloc[0, 0].startswith("ENS"):
+                mtx_feats = features[1]
+            elif features.iloc[0, 1].startswith("ENS"):
+                mtx_feats = features[0]
+        df = pd.DataFrame(
+            matrix.todense(), columns=barcodes[0].tolist(), index=mtx_feats
+        )
+        if not Path(self.output_dir).exists():
+            try:
+                Path.mkdir(self.output_dir, parents=True)
+            except FileExistsError as e:
+                print(
+                    f"Directory {self.output_dir} already exists."
+                    + " Select a different output directory or use --force/-f."
+                )
+                raise e
+        csv_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".csv")
+        features_path = Path(self.output_dir) / Path(Path(self.filename).stem + "_" + "features.csv")
+        if not self.force and Path(csv_path).exists():
+            raise FileExistsError(
+                f"File {csv_path} already exists. Use --force/-f to overwrite."
+            )
+        if not self.force and Path(features_path).exists():
+            raise FileExistsError(
+                f"File {features_path} already exists. Use --force/-f to overwrite."
+            )
+        df.to_csv(csv_path)
+        features.to_csv(
+            features_path,
+            index=False,
+        )
         return True
 
     # could handle both tsv and csv here. xsv?
