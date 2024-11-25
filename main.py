@@ -50,10 +50,7 @@ class Converter:
         return f"{self.filename}"
 
     def decide_filetype(self):
-        if Path(self.filename).is_dir():
-            dir_files = [f for f in Path(self.filename).iterdir() if f.is_file()]
-            print(dir_files)
-        else:
+        def control_filetype():
             for key in self.lookup_table:
                 eligible = True
                 if not self.lookup_table[key]["magic_mime"] == magic.from_file(
@@ -88,6 +85,15 @@ class Converter:
                         eligible = False
                 if eligible:
                     return key
+            return None
+
+        if Path(self.filename).is_dir():
+            dir_files = [f for f in Path(self.filename).iterdir() if f.is_file()]
+            print(dir_files)
+        else:
+            key = control_filetype()
+            if key is not None:
+                return key
         return None
 
     def convert(self):
