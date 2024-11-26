@@ -73,7 +73,7 @@ class Converter:
                     eligible = False
                 if not self.lookup_table[key]["Path_suffix"] == Path(filename).suffix:
                     eligible = False
-                if self.from_format == "gz":
+                if self.lookup_table[key]["splitext"] == ".gz":
                     if (
                         not self.lookup_table[key]["magic"].split(",")[0]
                         == magic.from_file(filename).split(",")[0]
@@ -102,18 +102,18 @@ class Converter:
             mtx = None
             features = None
             barcodes = None
-            if sum([f == ".gz" for f in filetypes]) > 0:
+            if sum([f.endswith(".gz") for f in filetypes]) > 0:
                 for i in range(len(filetypes)):
                     guessed_type = mimetypes.guess_type(dir_files[i])[0]
                     if guessed_type is None:
                         mtx = dir_files[i]
-                    if guessed_type == "text/tab-separated-values":
+                    elif guessed_type == "text/tab-separated-values":
                         if (
-                            Path(dir_files[i]).stem == "features"
-                            or Path(dir_files[i]).stem == "genes"
+                            Path(Path(dir_files[i]).stem).stem == "features"
+                            or Path(Path(dir_files[i]).stem).stem == "genes"
                         ):
                             features = dir_files[i]
-                        elif Path(dir_files[i]).stem == "barcodes":
+                        elif Path(Path(dir_files[i]).stem).stem == "barcodes":
                             barcodes = dir_files[i]
             else:
                 for i in range(len(filetypes)):
@@ -185,7 +185,9 @@ class Converter:
                 )
                 raise e
         csv_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".csv")
-        features_path = Path(self.output_dir) / Path(Path(self.filename).stem + "_" + "features.csv")
+        features_path = Path(self.output_dir) / Path(
+            Path(self.filename).stem + "_" + "features.csv"
+        )
         if not self.force and Path(csv_path).exists():
             raise FileExistsError(
                 f"File {csv_path} already exists. Use --force/-f to overwrite."

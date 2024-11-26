@@ -20,8 +20,9 @@
             "name": "Debug mtx to csv",
             "program": "${workspaceFolder}/main.py",
             "args": [
-                "sandbox/pbmc1k_subset",
-                "-d", "sandbox/mtx_test",
+                // "sandbox/pbmc1k_subset",
+                "data/pbmc_1k/filtered_feature_bc_matrix",
+                "-d", "sandbox",
                 "--from", "mtx",
                 "--to", "csv",
                 // "--force"

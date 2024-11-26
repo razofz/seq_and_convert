@@ -1,5 +1,8 @@
 import pandas as pd
-from scipy.io import mmread
+from scipy.io import mmread, mmwrite
+from pathlib import Path
+from scipy.sparse import coo_matrix
+import gzip
 
 # this code can(/should?) probably be included in the test files,
 # but writing it here now to get the logic out, can alway refactor later
@@ -24,5 +27,28 @@ subset.to_csv("test_files/pbmc1k_subset.csv")
 subset.transpose().to_csv("test_files/pbmc1k_subset_transposed.csv")
 df.iloc[:0].to_csv("test_files/pbmc1k_empty.csv")
 tamper = subset.copy()
-tamper.columns = list(tamper.columns[:10])*10
+tamper.columns = list(tamper.columns[:10]) * 10
 tamper.to_csv("test_files/pbmc1k_subset_identical_colnames.csv")
+
+Path.mkdir(Path("test_files/pbmc1k_subset"), parents=True, exist_ok=True)
+mmwrite(target="test_files/pbmc1k_subset" / Path("matrix.mtx"), a=coo_matrix(subset))
+with open("test_files/pbmc1k_subset" / Path("features.tsv"), "w") as f:
+    f.write("\n".join(subset.index))
+with open("test_files/pbmc1k_subset" / Path("barcodes.tsv"), "w") as f:
+    f.write("\n".join(subset.columns))
+
+Path.mkdir(Path("test_files/pbmc1k_subset_gzipped"), parents=True, exist_ok=True)
+for file in ["features.tsv", "barcodes.tsv", "matrix.mtx"]:
+    with open("test_files/pbmc1k_subset" / Path(file), "rb") as f:
+        with gzip.open(
+            "test_files/pbmc1k_subset_gzipped" / Path(file + ".gz"), "wb"
+        ) as g:
+            g.write(f.read())
+
+Path.mkdir(Path("test_files/false_gzipped_mtx"), parents=True, exist_ok=True)
+for file in ["features.tsv", "barcodes.tsv", "matrix.mtx"]:
+    with open("mimetypes.json", "rb") as f:
+        with gzip.open(
+            "test_files/false_gzipped_mtx" / Path(file + ".gz"), "wb"
+        ) as g:
+            g.write(f.read())

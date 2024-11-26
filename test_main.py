@@ -75,3 +75,68 @@ def test_converter_convert_csv_to_mtx(tmp_path):
         ).convert()
         is True
     )
+
+
+def test_converter_convert_mtx_to_csv(tmp_path):
+    # unzipped
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            "test_files/pbmc1k_subset",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+            force=True,
+        ).convert()
+        is True
+    )
+    # zipped
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset_gzipped",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            "test_files/pbmc1k_subset_gzipped",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset_gzipped",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+            force=True,
+        ).convert()
+        is True
+    )
+    with pytest.raises(Exception):
+        Converter(
+            "test_files/false_gzipped_mtx",
+            from_format="mtx",
+            to_format="csv",
+            output_dir=tmp_path,
+            force=True,
+        ).convert()
