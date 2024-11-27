@@ -48,7 +48,6 @@ class Converter:
             raise e
         if ft is not None:
             print(f"File {self.filename} seems to be a {ft} file")
-            # return self.convert()
 
     def __str__(self):
         return f"{self.filename}"
@@ -147,7 +146,7 @@ class Converter:
                 f"Conversion from {self.from_format} to {self.to_format} is not yet implemented"
             )
 
-    def mtx_to_csv(self):
+    def read_in_mtx(self):
         matrix = mmread(self.mtx)
         barcodes = pd.read_table(self.barcodes, header=None)
         assert barcodes.shape[0] == matrix.shape[1]
@@ -172,6 +171,37 @@ class Converter:
                 mtx_feats = features[1]
             elif features.iloc[0, 1].startswith("ENS"):
                 mtx_feats = features[0]
+        return features, barcodes, matrix, mtx_feats
+
+    def read_in_csv(self):
+        try:
+            self.matrix = pd.read_csv(self.filename)
+        except Exception as e:
+            print(f"Error: {e}")
+        # pot. unnecessary all if case, let's see
+        if (self.matrix.dtypes == object).any():
+            if (self.matrix.dtypes == object).all():
+                # probably a header row read in as first row, redo
+                self.matrix = pd.read_csv(self.filename, header=0)
+            elif pd.api.types.is_dtype_equal(
+                self.matrix.dtypes.iloc[0], pd.api.types.pandas_dtype("object")
+            ):
+                # probably rownames/index read in as first column, redo
+                self.matrix = pd.read_csv(self.filename, index_col=0)
+        for i in range(len(self.matrix.columns)):
+            for j in range(len(self.matrix.columns)):
+                if i != j:
+                    if self.matrix.columns[i] == self.matrix.columns[j].split(".")[0]:
+                        raise ValueError(
+                            "Column names are not unique, please check cell barcodes, e.g.\n"
+                            + f"Column {i}: {self.matrix.columns[i]}\n"
+                            + f"Column {j}: {self.matrix.columns[j]}"
+                        )
+                        # just the first case of identical barcodes for now
+
+    def mtx_to_csv(self):
+        features, barcodes, matrix, mtx_feats = self.read_in_mtx()
+
         df = pd.DataFrame(
             matrix.todense(), columns=barcodes[0].tolist(), index=mtx_feats
         )
@@ -205,32 +235,8 @@ class Converter:
 
     # could handle both tsv and csv here. xsv?
     def csv_to_mtx(self):
-        try:
-            self.matrix = pd.read_csv(self.filename)
-        except Exception as e:
-            print(f"Error: {e}")
-        # pot. unnecessary all if case, let's see
-        if (self.matrix.dtypes == object).any():
-            if (self.matrix.dtypes == object).all():
-                # probably a header row read in as first row, redo
-                self.matrix = pd.read_csv(self.filename, header=0)
-            elif pd.api.types.is_dtype_equal(
-                self.matrix.dtypes.iloc[0], pd.api.types.pandas_dtype("object")
-            ):
-                # probably rownames/index read in as first column, redo
-                self.matrix = pd.read_csv(self.filename, index_col=0)
-        for i in range(len(self.matrix.columns)):
-            for j in range(len(self.matrix.columns)):
-                if i != j:
-                    if self.matrix.columns[i] == self.matrix.columns[j].split(".")[0]:
-                        raise ValueError(
-                            "Column names are not unique, please check cell barcodes, e.g.\n"
-                            + f"Column {i}: {self.matrix.columns[i]}\n"
-                            + f"Column {j}: {self.matrix.columns[j]}"
-                        )
-                        # just the first case of identical barcodes for now
+        self.read_in_csv()
 
-        # print(self.matrix.head())
         mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
         try:
             Path.mkdir(Path(mtx_output_dir), parents=True, exist_ok=self.force)

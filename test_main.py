@@ -132,7 +132,7 @@ def test_converter_convert_mtx_to_csv(tmp_path):
         ).convert()
         is True
     )
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         Converter(
             "test_files/false_gzipped_mtx",
             from_format="mtx",
