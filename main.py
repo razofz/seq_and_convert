@@ -1,12 +1,14 @@
-import typer
-from typing_extensions import Annotated
-import pandas as pd
-from pathlib import Path
-import magic
-import mimetypes
 import json
+import mimetypes
+from pathlib import Path
+
+import h5py
+import magic
+import pandas as pd
+import typer
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
+from typing_extensions import Annotated
 
 app = typer.Typer()
 
@@ -141,6 +143,8 @@ class Converter:
             return self.csv_to_mtx()
         elif self.from_format == "mtx" and self.to_format == "csv":
             return self.mtx_to_csv()
+        elif self.from_format == "csv" and self.to_format == "h5":
+            return self.csv_to_h5()
         else:
             raise NotImplementedError(
                 f"Conversion from {self.from_format} to {self.to_format} is not yet implemented"
@@ -199,21 +203,34 @@ class Converter:
                         )
                         # just the first case of identical barcodes for now
 
+    def create_output_dir(self, directory: str = None):
+        if directory is None:
+            directory = self.output_dir
+        if not Path(directory).exists():
+            try:
+                Path.mkdir(directory, parents=True, exist_ok=self.force)
+            except FileExistsError as e:
+                print(
+                    f"Directory {directory} already exists."
+                    + " Select a different output directory or use --force/-f."
+                )
+                raise e
+
+    def read_in_h5(self):
+        h5_file = h5py.File(self.filename, "r")
+        ...
+
+    def csv_to_h5(self):
+        self.read_in_csv()
+        h5_file = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
+
     def mtx_to_csv(self):
         features, barcodes, matrix, mtx_feats = self.read_in_mtx()
 
         df = pd.DataFrame(
             matrix.todense(), columns=barcodes[0].tolist(), index=mtx_feats
         )
-        if not Path(self.output_dir).exists():
-            try:
-                Path.mkdir(self.output_dir, parents=True)
-            except FileExistsError as e:
-                print(
-                    f"Directory {self.output_dir} already exists."
-                    + " Select a different output directory or use --force/-f."
-                )
-                raise e
+        self.create_output_dir()
         csv_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".csv")
         features_path = Path(self.output_dir) / Path(
             Path(self.filename).stem + "_" + "features.csv"
@@ -238,18 +255,19 @@ class Converter:
         self.read_in_csv()
 
         mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
-        try:
-            Path.mkdir(Path(mtx_output_dir), parents=True, exist_ok=self.force)
-        except FileExistsError as e:
-            print(
-                f"Directory {mtx_output_dir} already exists."
-                + " Select a different output directory or use --force/-f."
-            )
-            raise e
-        mmwrite(target=mtx_output_dir / Path("matrix.mtx"), a=coo_matrix(self.matrix))
-        with open(mtx_output_dir / Path("features.tsv"), "w") as f:
+        self.create_output_dir(mtx_output_dir)
+        mtx_path = mtx_output_dir / Path("matrix.mtx")
+        feats_path = mtx_output_dir / Path("features.tsv")
+        barcodes_path = mtx_output_dir / Path("barcodes.tsv")
+        for p in [mtx_path, feats_path, barcodes_path]:
+            if not self.force and p.exists():
+                raise FileExistsError(
+                    f"File {p} already exists. Use --force/-f to overwrite."
+                )
+        mmwrite(target=mtx_path, a=coo_matrix(self.matrix))
+        with open(feats_path, "w") as f:
             f.write("\n".join(self.matrix.index))
-        with open(mtx_output_dir / Path("barcodes.tsv"), "w") as f:
+        with open(barcodes_path, "w") as f:
             f.write("\n".join(self.matrix.columns))
         return True
 
