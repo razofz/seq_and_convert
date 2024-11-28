@@ -140,3 +140,39 @@ def test_converter_convert_mtx_to_csv(tmp_path):
             output_dir=tmp_path,
             force=True,
         ).convert()
+
+
+def test_converter_convert_csv_to_h5(tmp_path):
+    with pytest.raises(ValueError):
+        Converter(
+            "test_files/pbmc1k_subset_identical_colnames.csv",
+            from_format="csv",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset.csv",
+            from_format="csv",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            "test_files/pbmc1k_subset.csv",
+            from_format="csv",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset.csv",
+            from_format="csv",
+            to_format="h5",
+            output_dir=tmp_path,
+            force=True,
+        ).convert()
+        is True
+    )

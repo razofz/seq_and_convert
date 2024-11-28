@@ -228,6 +228,7 @@ class Converter:
         self.read_in_csv()
 
         h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
+        self.create_output_dir()
         if not self.force and Path(h5_path).exists():
             raise FileExistsError(
                 f"File {h5_path} already exists. Use --force/-f to overwrite."
@@ -259,9 +260,9 @@ class Converter:
             gene_ids = [""] * self.matrix.shape[1]
             gene_names = [""] * self.matrix.shape[1]
             if pd.api.types.is_dtype_equal(
-                self.matrix.dtypes.iloc[0], pd.api.types.pandas_dtype("object")
+                self.matrix.index.dtype, pd.api.types.pandas_dtype("object")
             ):
-                if self.matrix.iloc[0, 0].startswith("ENS"):
+                if self.matrix.index[0].startswith("ENS"):
                     gene_ids = self.matrix.index
                 else:
                     gene_names = self.matrix.index
@@ -272,6 +273,7 @@ class Converter:
         except Exception as e:
             print(f"Error: {e}")
             raise e
+        return True
 
     def mtx_to_csv(self):
         features, barcodes, matrix, mtx_feats = self.read_in_mtx()
