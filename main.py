@@ -7,7 +7,7 @@ import magic
 import pandas as pd
 import typer
 from scipy.io import mmread, mmwrite
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csc_matrix
 from typing_extensions import Annotated
 
 app = typer.Typer()
@@ -19,6 +19,7 @@ class Converter:
         filename: str,
         from_format: str,
         to_format: str,
+        genome: str = None,
         force: bool = False,
         output_dir: str = ".",
     ):
@@ -39,6 +40,7 @@ class Converter:
         self.mtx = None
         self.barcodes = None
         self.features = None
+        self.genome = genome
         if not self.filename:
             raise ValueError("No filename provided")
         if not Path(self.filename).exists():
@@ -165,6 +167,8 @@ class Converter:
         # Feels a bit clunky, but a better heuristic than nothing, I guess.
         # Let's do some simplification for now, let's assume the id and name
         # are in one of the first two columns and select one of them.
+        # edit: if a 10x file, should be id, name, feat_type:
+        # https://www.10xgenomics.com/support/software/cell-ranger/latest/analysis/outputs/cr-outputs-mex-matrices
         assert features.shape[0] == matrix.shape[0]
         mtx_feats = None
         if features.shape[1] == 1:
@@ -222,7 +226,52 @@ class Converter:
 
     def csv_to_h5(self):
         self.read_in_csv()
-        h5_file = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
+
+        h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
+        if not self.force and Path(h5_path).exists():
+            raise FileExistsError(
+                f"File {h5_path} already exists. Use --force/-f to overwrite."
+            )
+        try:
+            h5_file = h5py.File(h5_path, "w")
+            matrix = csc_matrix(self.matrix)
+            h5_file.create_group("matrix")
+            h5_file.create_dataset("matrix/barcodes", data=list(self.matrix.columns), dtype="S18")
+            h5_file.create_dataset("matrix/indices", data=matrix.indices, dtype="int64")
+            h5_file.create_dataset("matrix/indptr", data=matrix.indptr, dtype="int64")
+            h5_file.create_dataset("matrix/shape", data=matrix.shape, dtype="int32")
+            h5_file.create_dataset("matrix/data", data=matrix.data, dtype="int32")
+            h5_file.create_group("matrix/features")
+            # TODO: check if all features are gene exp
+            h5_file.create_dataset(
+                "matrix/features/feature_type",
+                data=["Gene Expression"] * self.matrix.shape[1],
+                dtype=f"S{len('Gene Expression')}",
+            )
+            if self.genome is not None:
+                gnome = [self.genome] * self.matrix.shape[1]
+                dtype = f"S{len(self.genome)}"
+            else:
+                gnome = [""] * self.matrix.shape[1]
+                dtype = "S16"
+            h5_file.create_dataset("matrix/features/genome", data=gnome, dtype=dtype)
+
+            gene_ids = [""] * self.matrix.shape[1]
+            gene_names = [""] * self.matrix.shape[1]
+            if pd.api.types.is_dtype_equal(
+                self.matrix.dtypes.iloc[0], pd.api.types.pandas_dtype("object")
+            ):
+                if self.matrix.iloc[0, 0].startswith("ENS"):
+                    gene_ids = self.matrix.index
+                else:
+                    gene_names = self.matrix.index
+            h5_file.create_dataset("matrix/features/id", data=gene_ids, dtype="S16")
+            h5_file.create_dataset("matrix/features/name", data=gene_names, dtype="S16")
+
+            h5_file.create_dataset("matrix/features/_all_tag_keys", data=["genome"], dtype="S6")
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
 
     def mtx_to_csv(self):
         features, barcodes, matrix, mtx_feats = self.read_in_mtx()
@@ -285,6 +334,9 @@ def convert(
             "--output-dir", "-d", help="Which directory/folder to output files into."
         ),
     ] = ".",
+    genome: Annotated[
+        str, typer.Option("--genome", "-g", help="What genome to use")
+    ] = None,
     force: Annotated[
         bool, typer.Option("--force", "-f", help="Overwrite existing files")
     ] = False,
@@ -308,6 +360,7 @@ def convert(
         from_format=from_format,
         to_format=to_format,
         output_dir=output_dir,
+        genome=genome,
         force=force,
     )
     return c.convert()
