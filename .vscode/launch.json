@@ -40,6 +40,20 @@
                 "--to", "h5",
                 "--force"
             ]
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Debug mtx to h5",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                // "test_files/pbmc1k_subset",
+                "data/pbmc_1k/filtered_feature_bc_matrix",
+                "-d", "sandbox/debug",
+                "--from", "mtx",
+                "--to", "h5",
+                "--force"
+            ]
         }
     ]
 }

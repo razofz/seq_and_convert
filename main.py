@@ -147,6 +147,8 @@ class Converter:
             return self.mtx_to_csv()
         elif self.from_format == "csv" and self.to_format == "h5":
             return self.csv_to_h5()
+        elif self.from_format == "mtx" and self.to_format == "h5":
+            return self.mtx_to_h5()
         else:
             raise NotImplementedError(
                 f"Conversion from {self.from_format} to {self.to_format} is not yet implemented"
@@ -231,6 +233,7 @@ class Converter:
         ]
         for key in keys:
             assert key in h5_file
+        self.matrix = h5_file
 
     def create_output_dir(self, directory: str = None):
         if directory is None:
@@ -249,16 +252,18 @@ class Converter:
         self.read_in_csv()
 
         h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
-        self.create_output_dir()
         if not self.force and Path(h5_path).exists():
             raise FileExistsError(
                 f"File {h5_path} already exists. Use --force/-f to overwrite."
             )
+        self.create_output_dir()
         try:
             h5_file = h5py.File(h5_path, "w")
             matrix = csc_matrix(self.matrix)
             h5_file.create_group("matrix")
-            h5_file.create_dataset("matrix/barcodes", data=list(self.matrix.columns), dtype="S18")
+            h5_file.create_dataset(
+                "matrix/barcodes", data=list(self.matrix.columns), dtype="S18"
+            )
             h5_file.create_dataset("matrix/indices", data=matrix.indices, dtype="int64")
             h5_file.create_dataset("matrix/indptr", data=matrix.indptr, dtype="int64")
             h5_file.create_dataset("matrix/shape", data=matrix.shape, dtype="int32")
@@ -271,15 +276,15 @@ class Converter:
                 dtype=f"S{len('Gene Expression')}",
             )
             if self.genome is not None:
-                gnome = [self.genome] * self.matrix.shape[1]
+                gnome = [self.genome] * self.matrix.shape[0]
                 dtype = f"S{len(self.genome)}"
             else:
-                gnome = [""] * self.matrix.shape[1]
+                gnome = [""] * self.matrix.shape[0]
                 dtype = "S16"
             h5_file.create_dataset("matrix/features/genome", data=gnome, dtype=dtype)
 
-            gene_ids = [""] * self.matrix.shape[1]
-            gene_names = [""] * self.matrix.shape[1]
+            gene_ids = [""] * self.matrix.shape[0]
+            gene_names = [""] * self.matrix.shape[0]
             if pd.api.types.is_dtype_equal(
                 self.matrix.index.dtype, pd.api.types.pandas_dtype("object")
             ):
@@ -290,7 +295,139 @@ class Converter:
             h5_file.create_dataset("matrix/features/id", data=gene_ids, dtype="S16")
             h5_file.create_dataset("matrix/features/name", data=gene_names, dtype="S16")
 
-            h5_file.create_dataset("matrix/features/_all_tag_keys", data=["genome"], dtype="S6")
+            h5_file.create_dataset(
+                "matrix/features/_all_tag_keys", data=["genome"], dtype="S6"
+            )
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
+        return True
+
+    def mtx_to_h5(self):
+        features, barcodes, matrix, _ = self.read_in_mtx()
+
+        h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
+        if not self.force and Path(h5_path).exists():
+            raise FileExistsError(
+                f"File {h5_path} already exists. Use --force/-f to overwrite."
+            )
+        elif self.force and Path(h5_path).exists():
+            Path.unlink(h5_path)
+        self.create_output_dir()
+        try:
+            h5_file = h5py.File(h5_path, "w")
+            matrix = csc_matrix(matrix)
+            h5_file.create_group("matrix")
+            h5_file.create_dataset(
+                "matrix/barcodes", data=barcodes[0], dtype="S18", maxshape=(None,)
+            )
+            h5_file.create_dataset(
+                "matrix/indices", data=matrix.indices, dtype="int64", maxshape=(None,)
+            )
+            h5_file.create_dataset(
+                "matrix/indptr", data=matrix.indptr, dtype="int64", maxshape=(None,)
+            )
+            h5_file.create_dataset(
+                "matrix/shape", data=matrix.shape, dtype="int32", maxshape=(None,)
+            )
+            h5_file.create_dataset(
+                "matrix/data", data=matrix.data, dtype="int32", maxshape=(None,)
+            )
+            h5_file.create_group("matrix/features")
+
+            # TODO: check if all features are gene exp
+
+            features_type = ["Gene Expression"] * matrix.shape[0]
+            gene_ids = [""] * matrix.shape[0]
+            gene_names = [""] * matrix.shape[0]
+            if features.shape[1] == 1:
+                if pd.api.types.is_dtype_equal(
+                    features.index.dtype, pd.api.types.pandas_dtype("object")
+                ):
+                    if features.index[0].startswith("ENS"):
+                        gene_ids = features.index.to_list()
+                        gene_names = features[0].to_list()
+                    else:
+                        gene_names = features.index.to_list()
+                        gene_ids = features[0].to_list()
+                else:
+                    if features.iloc[0, 0].startswith("ENS"):
+                        gene_ids = features[0].to_list()
+                    else:
+                        gene_names = features[0].to_list()
+            elif features.shape[1] == 2:
+                if pd.api.types.is_dtype_equal(
+                    features.index.dtype, pd.api.types.pandas_dtype("object")
+                ):
+                    if features.index[0].startswith("ENS"):
+                        gene_ids = features.index.to_list()
+                        gene_names = features[0].to_list()
+                        features_type = features[1].to_list()
+                    else:
+                        gene_names = features.index.to_list()
+                        gene_ids = features[0].to_list()
+                        features_type = features[1].to_list()
+                else:
+                    if features.iloc[0, 0].startswith("ENS"):
+                        gene_ids = features[0].to_list()
+                        gene_names = features[1].to_list()
+                    else:
+                        gene_names = features[0].to_list()
+                        gene_ids = features[1].to_list()
+            elif features.shape[1] == 3:
+                if pd.api.types.is_dtype_equal(
+                    features.index.dtype, pd.api.types.pandas_dtype("object")
+                ):
+                    if features.index[0].startswith("ENS"):
+                        gene_ids = features.index.to_list()
+                        gene_names = features[0].to_list()
+                        features_type = features[1].to_list()
+                    else:
+                        gene_names = features.index.to_list()
+                        gene_ids = features[0].to_list()
+                        features_type = features[1].to_list()
+                else:
+                    if features.iloc[0, 0].startswith("ENS"):
+                        gene_ids = features[0].to_list()
+                        gene_names = features[1].to_list()
+                        features_type = features[2].to_list()
+                    else:
+                        gene_names = features[0].to_list()
+                        gene_ids = features[1].to_list()
+                        features_type = features[2].to_list()
+
+            h5_file.create_dataset(
+                "matrix/features/feature_type",
+                data=features_type,
+                dtype="S15",
+            )
+            if self.genome is not None:
+                gnome = [self.genome] * matrix.shape[1]
+                dtype = f"S{len(self.genome)}"
+            else:
+                gnome = ["unknown"] * matrix.shape[1]
+                dtype = "S16"
+            h5_file.create_dataset(
+                "matrix/features/genome", data=gnome, dtype=dtype, maxshape=(None,)
+            )
+
+            # this is just necessary because of scanpy's only importing
+            # gene_ids
+            if gene_ids == [""] * matrix.shape[0]:
+                gene_ids = list(range(matrix.shape[0]))
+            h5_file.create_dataset(
+                "matrix/features/id", data=gene_ids, dtype="S15", maxshape=(None,)
+            )
+            h5_file.create_dataset(
+                "matrix/features/name", data=gene_names, dtype="S17", maxshape=(None,)
+            )
+
+            h5_file.create_dataset(
+                "matrix/features/_all_tag_keys",
+                data=["genome"],
+                dtype="S6",
+                maxshape=(None,),
+            )
         except Exception as e:
             print(f"Error: {e}")
             raise e
