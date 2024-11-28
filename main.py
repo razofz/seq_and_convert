@@ -207,6 +207,31 @@ class Converter:
                         )
                         # just the first case of identical barcodes for now
 
+    def read_in_h5(self):
+        try:
+            h5_file = h5py.File(self.filename, "r")
+        except Exception as e:
+            print(f"Error: {e}")
+        # for now let's treat it as a 10x h5 file,
+        # and later we can extend the definition
+        print(h5_file)
+        keys = [
+            "matrix",
+            "matrix/barcodes",
+            "matrix/data",
+            "matrix/indices",
+            "matrix/indptr",
+            "matrix/shape",
+            "matrix/features",
+            "matrix/features/_all_tag_keys",
+            "matrix/features/feature_type",
+            "matrix/features/genome",
+            "matrix/features/id",
+            "matrix/features/name",
+        ]
+        for key in keys:
+            assert key in h5_file
+
     def create_output_dir(self, directory: str = None):
         if directory is None:
             directory = self.output_dir
@@ -219,10 +244,6 @@ class Converter:
                     + " Select a different output directory or use --force/-f."
                 )
                 raise e
-
-    def read_in_h5(self):
-        h5_file = h5py.File(self.filename, "r")
-        ...
 
     def csv_to_h5(self):
         self.read_in_csv()
