@@ -179,6 +179,33 @@ def test_converter_convert_csv_to_h5(tmp_path):
     assert c.convert() is True
 
 
+def test_converter_convert_mtx_to_h5(tmp_path):
+    assert (
+        Converter(
+            "test_files/pbmc1k_subset",
+            from_format="mtx",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            "test_files/pbmc1k_subset",
+            from_format="mtx",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+    c = Converter(
+        "test_files/pbmc1k_subset",
+        from_format="mtx",
+        to_format="h5",
+        output_dir=tmp_path,
+        force=True,
+    )
+    assert c.convert() is True
+
+
 @pytest.fixture
 def csv_to_h5_converter(tmp_path):
     return Converter(
