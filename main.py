@@ -304,39 +304,7 @@ class Converter:
         return True
 
     def mtx_to_h5(self):
-        features, barcodes, matrix, _ = self.read_in_mtx()
-
-        h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
-        if not self.force and Path(h5_path).exists():
-            raise FileExistsError(
-                f"File {h5_path} already exists. Use --force/-f to overwrite."
-            )
-        elif self.force and Path(h5_path).exists():
-            Path.unlink(h5_path)
-        self.create_output_dir()
-        try:
-            h5_file = h5py.File(h5_path, "w")
-            matrix = csc_matrix(matrix)
-            h5_file.create_group("matrix")
-            h5_file.create_dataset(
-                "matrix/barcodes", data=barcodes[0], dtype="S18", maxshape=(None,), compression="gzip", compression_opts=1
-            )
-            h5_file.create_dataset(
-                "matrix/indices", data=matrix.indices, dtype="int64", maxshape=(None,), compression="gzip", compression_opts=1
-            )
-            h5_file.create_dataset(
-                "matrix/indptr", data=matrix.indptr, dtype="int64", maxshape=(None,), compression="gzip", compression_opts=1
-            )
-            h5_file.create_dataset(
-                "matrix/shape", data=matrix.shape, dtype="int32", maxshape=(None,), compression="gzip", compression_opts=1
-            )
-            h5_file.create_dataset(
-                "matrix/data", data=matrix.data, dtype="int32", maxshape=(None,), compression="gzip", compression_opts=1
-            )
-            h5_file.create_group("matrix/features")
-
-            # TODO: check if all features are gene exp
-
+        def extract_features(features, matrix):
             features_type = ["Gene Expression"] * matrix.shape[0]
             gene_ids = [""] * matrix.shape[0]
             gene_names = [""] * matrix.shape[0]
@@ -395,11 +363,80 @@ class Converter:
                         gene_names = features[0].to_list()
                         gene_ids = features[1].to_list()
                         features_type = features[2].to_list()
+            return gene_ids, gene_names, features_type
+
+        features, barcodes, matrix, _ = self.read_in_mtx()
+
+        h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
+        if not self.force and Path(h5_path).exists():
+            raise FileExistsError(
+                f"File {h5_path} already exists. Use --force/-f to overwrite."
+            )
+        elif self.force and Path(h5_path).exists():
+            Path.unlink(h5_path)
+        self.create_output_dir()
+        try:
+            h5_file = h5py.File(h5_path, "w")
+            matrix = csc_matrix(matrix)
+            h5_file.create_group("matrix")
+            h5_file.create_dataset(
+                "matrix/barcodes",
+                data=barcodes[0],
+                dtype="S18",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
+            )
+            h5_file.create_dataset(
+                "matrix/indices",
+                data=matrix.indices,
+                dtype="int64",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
+            )
+            h5_file.create_dataset(
+                "matrix/indptr",
+                data=matrix.indptr,
+                dtype="int64",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
+            )
+            h5_file.create_dataset(
+                "matrix/shape",
+                data=matrix.shape,
+                dtype="int32",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
+            )
+            h5_file.create_dataset(
+                "matrix/data",
+                data=matrix.data,
+                dtype="int32",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
+            )
+            h5_file.create_group("matrix/features")
+
+            # TODO: check if all features are gene exp
+
+            features_type = ["Gene Expression"] * matrix.shape[0]
+            gene_ids = [""] * matrix.shape[0]
+            gene_names = [""] * matrix.shape[0]
+
+            gene_ids, gene_names, features_type = extract_features(
+                features=features, matrix=matrix
+            )
 
             h5_file.create_dataset(
                 "matrix/features/feature_type",
                 data=features_type,
-                dtype="S15", compression="gzip", compression_opts=1
+                dtype="S15",
+                compression="gzip",
+                compression_opts=1,
             )
             if self.genome is not None:
                 gnome = [self.genome] * matrix.shape[0]
@@ -408,7 +445,12 @@ class Converter:
                 gnome = ["unknown"] * matrix.shape[0]
                 dtype = "S16"
             h5_file.create_dataset(
-                "matrix/features/genome", data=gnome, dtype=dtype, maxshape=(None,), compression="gzip", compression_opts=1
+                "matrix/features/genome",
+                data=gnome,
+                dtype=dtype,
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
             )
 
             # this is just necessary because of scanpy's only importing
@@ -417,17 +459,29 @@ class Converter:
                 gene_ids = gene_names
                 # gene_ids = list(range(matrix.shape[0]))
             h5_file.create_dataset(
-                "matrix/features/id", data=gene_ids, dtype="S15", maxshape=(None,), compression="gzip", compression_opts=1
+                "matrix/features/id",
+                data=gene_ids,
+                dtype="S15",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
             )
             h5_file.create_dataset(
-                "matrix/features/name", data=gene_names, dtype="S17", maxshape=(None,), compression="gzip", compression_opts=1
+                "matrix/features/name",
+                data=gene_names,
+                dtype="S17",
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
             )
 
             h5_file.create_dataset(
                 "matrix/features/_all_tag_keys",
                 data=["genome"],
                 dtype="S6",
-                maxshape=(None,), compression="gzip", compression_opts=1
+                maxshape=(None,),
+                compression="gzip",
+                compression_opts=1,
             )
         except Exception as e:
             print(f"Error: {e}")

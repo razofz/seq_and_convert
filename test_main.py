@@ -1,7 +1,10 @@
 import pytest
-from pathlib import Path
+
+# from pathlib import Path
 from main import Converter
 import json
+import scanpy as sc
+import os
 
 mimetypes_table = json.load(open("mimetypes.json", "r"))
 
@@ -166,13 +169,74 @@ def test_converter_convert_csv_to_h5(tmp_path):
             to_format="h5",
             output_dir=tmp_path,
         ).convert()
-    assert (
-        Converter(
-            "test_files/pbmc1k_subset.csv",
-            from_format="csv",
-            to_format="h5",
-            output_dir=tmp_path,
-            force=True,
-        ).convert()
-        is True
+    c = Converter(
+        "test_files/pbmc1k_subset.csv",
+        from_format="csv",
+        to_format="h5",
+        output_dir=tmp_path,
+        force=True,
     )
+    assert c.convert() is True
+
+
+@pytest.fixture
+def csv_to_h5_converter(tmp_path):
+    return Converter(
+        "test_files/pbmc1k_subset.csv",
+        from_format="csv",
+        to_format="h5",
+        output_dir=tmp_path,
+        force=True,
+    )
+
+
+@pytest.fixture
+def mtx_to_h5_converter(tmp_path):
+    return Converter(
+        "test_files/pbmc1k_subset",
+        from_format="mtx",
+        to_format="h5",
+        output_dir=tmp_path,
+        force=True,
+    )
+
+
+def test_seurat_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
+    assert csv_to_h5_converter.convert() is True
+    # using my system R for now, when turning this into
+    # a Docker container there'll be a system R installation there
+    # or maybe we'll get rpy2 working there, let's see
+    try:
+        assert (
+            os.system(
+                "/usr/local/bin/R -e 'print(R.home()); library(Seurat); "
+                + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
+            )
+            == 0
+        )
+    except Exception as e:
+        pytest.fail(f"Unexpected exception raised: {e}")
+    assert mtx_to_h5_converter.convert() is True
+    try:
+        assert (
+            os.system(
+                "/usr/local/bin/R -e 'print(R.home()); library(Seurat); "
+                + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
+            )
+            == 0
+        )
+    except Exception as e:
+        pytest.fail(f"Unexpected exception raised: {e}")
+
+
+def test_scanpy_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
+    assert csv_to_h5_converter.convert() is True
+    try:
+        sc.read_10x_h5(tmp_path / "pbmc1k_subset.h5")
+    except Exception as e:
+        pytest.fail(f"Unexpected exception raised: {e}")
+    assert mtx_to_h5_converter.convert() is True
+    try:
+        sc.read_10x_h5(tmp_path / "pbmc1k_subset.h5")
+    except Exception as e:
+        pytest.fail(f"Unexpected exception raised: {e}")
