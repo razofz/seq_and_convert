@@ -319,19 +319,19 @@ class Converter:
             matrix = csc_matrix(matrix)
             h5_file.create_group("matrix")
             h5_file.create_dataset(
-                "matrix/barcodes", data=barcodes[0], dtype="S18", maxshape=(None,)
+                "matrix/barcodes", data=barcodes[0], dtype="S18", maxshape=(None,), compression="gzip", compression_opts=1
             )
             h5_file.create_dataset(
-                "matrix/indices", data=matrix.indices, dtype="int64", maxshape=(None,)
+                "matrix/indices", data=matrix.indices, dtype="int64", maxshape=(None,), compression="gzip", compression_opts=1
             )
             h5_file.create_dataset(
-                "matrix/indptr", data=matrix.indptr, dtype="int64", maxshape=(None,)
+                "matrix/indptr", data=matrix.indptr, dtype="int64", maxshape=(None,), compression="gzip", compression_opts=1
             )
             h5_file.create_dataset(
-                "matrix/shape", data=matrix.shape, dtype="int32", maxshape=(None,)
+                "matrix/shape", data=matrix.shape, dtype="int32", maxshape=(None,), compression="gzip", compression_opts=1
             )
             h5_file.create_dataset(
-                "matrix/data", data=matrix.data, dtype="int32", maxshape=(None,)
+                "matrix/data", data=matrix.data, dtype="int32", maxshape=(None,), compression="gzip", compression_opts=1
             )
             h5_file.create_group("matrix/features")
 
@@ -399,34 +399,35 @@ class Converter:
             h5_file.create_dataset(
                 "matrix/features/feature_type",
                 data=features_type,
-                dtype="S15",
+                dtype="S15", compression="gzip", compression_opts=1
             )
             if self.genome is not None:
-                gnome = [self.genome] * matrix.shape[1]
+                gnome = [self.genome] * matrix.shape[0]
                 dtype = f"S{len(self.genome)}"
             else:
-                gnome = ["unknown"] * matrix.shape[1]
+                gnome = ["unknown"] * matrix.shape[0]
                 dtype = "S16"
             h5_file.create_dataset(
-                "matrix/features/genome", data=gnome, dtype=dtype, maxshape=(None,)
+                "matrix/features/genome", data=gnome, dtype=dtype, maxshape=(None,), compression="gzip", compression_opts=1
             )
 
             # this is just necessary because of scanpy's only importing
             # gene_ids
             if gene_ids == [""] * matrix.shape[0]:
-                gene_ids = list(range(matrix.shape[0]))
+                gene_ids = gene_names
+                # gene_ids = list(range(matrix.shape[0]))
             h5_file.create_dataset(
-                "matrix/features/id", data=gene_ids, dtype="S15", maxshape=(None,)
+                "matrix/features/id", data=gene_ids, dtype="S15", maxshape=(None,), compression="gzip", compression_opts=1
             )
             h5_file.create_dataset(
-                "matrix/features/name", data=gene_names, dtype="S17", maxshape=(None,)
+                "matrix/features/name", data=gene_names, dtype="S17", maxshape=(None,), compression="gzip", compression_opts=1
             )
 
             h5_file.create_dataset(
                 "matrix/features/_all_tag_keys",
                 data=["genome"],
                 dtype="S6",
-                maxshape=(None,),
+                maxshape=(None,), compression="gzip", compression_opts=1
             )
         except Exception as e:
             print(f"Error: {e}")
@@ -435,6 +436,10 @@ class Converter:
 
     def mtx_to_csv(self):
         features, barcodes, matrix, mtx_feats = self.read_in_mtx()
+        # borrowing heuristic from 10X for scaling of memory usage from matrix size:
+        # https://github.com/10XGenomics/cellranger/blob/main/lib/python/cellranger/h5_constants.py
+        # 2.6 times matrix file size in memory usage. Can issue a warning if the system memory
+        # is less than the calculated memory usage.
 
         df = pd.DataFrame(
             matrix.todense(), columns=barcodes[0].tolist(), index=mtx_feats
