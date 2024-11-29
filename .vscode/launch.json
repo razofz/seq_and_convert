@@ -54,6 +54,19 @@
                 "--to", "h5",
                 "--force"
             ]
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Debug h5 to mtx",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "sandbox/pbmc1k_subset.h5",
+                "-d", "sandbox/debug",
+                "--from", "h5",
+                "--to", "mtx",
+                "--force"
+            ]
         }
     ]
 }

@@ -149,9 +149,12 @@ class Converter:
             return self.csv_to_h5()
         elif self.from_format == "mtx" and self.to_format == "h5":
             return self.mtx_to_h5()
+        elif self.from_format == "h5" and self.to_format == "mtx":
+            return self.h5_to_mtx()
         else:
             raise NotImplementedError(
-                f"Conversion from {self.from_format} to {self.to_format} is not yet implemented"
+                f"Conversion from {self.from_format} to {self.to_format} "
+                + "is not yet implemented"
             )
 
     def read_in_mtx(self):
@@ -540,6 +543,67 @@ class Converter:
             f.write("\n".join(self.matrix.index))
         with open(barcodes_path, "w") as f:
             f.write("\n".join(self.matrix.columns))
+        return True
+
+    def h5_to_mtx(self):
+        self.read_in_h5()
+
+        mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
+        self.create_output_dir(mtx_output_dir)
+        mtx_path = mtx_output_dir / Path("matrix.mtx")
+        feats_path = mtx_output_dir / Path("features.tsv")
+        barcodes_path = mtx_output_dir / Path("barcodes.tsv")
+        for p in [mtx_path, feats_path, barcodes_path]:
+            if not self.force and p.exists():
+                raise FileExistsError(
+                    f"File {p} already exists. Use --force/-f to overwrite."
+                )
+        mmwrite(target=mtx_path, a=csc_matrix(self.matrix["matrix/data"][:]))
+        # construct features dataframe
+        # should check basic stuff, e.g. that it's not empty etc, but later
+        feat_type = None
+        genome = None
+        gene_names = None
+        gene_ids = None
+        if max([len(x) for x in self.matrix["matrix/features/feature_type"][:10]]) > 0:
+            feat_type = [
+                str(j)
+                for j in self.matrix["matrix/features/feature_type"][:].astype(str)
+            ]
+        else:
+            feat_type = ["Gene Expression"] * self.matrix[
+                "matrix/features/feature_type"
+            ].shape[0]
+        if max([len(x) for x in self.matrix["matrix/features/genome"][:10]]) > 0:
+            genome = [
+                str(j) for j in self.matrix["matrix/features/genome"][:].astype(str)
+            ]
+        if max([len(x) for x in self.matrix["matrix/features/name"][:10]]) > 0:
+            gene_names = [
+                str(j) for j in self.matrix["matrix/features/name"][:].astype(str)
+            ]
+        if max(
+            [len(x) for x in self.matrix["matrix/features/id"][:10]]
+        ) > 0 and self.matrix["matrix/features/id"].dtype not in ["int32", "int64"]:
+            gene_ids = [
+                str(j) for j in self.matrix["matrix/features/id"][:].astype(str)
+            ]
+        feature_dict = {}
+        if gene_ids is not None:
+            feature_dict["id"] = gene_ids
+        if gene_names is not None:
+            feature_dict["name"] = gene_names
+        if feat_type is not None:
+            feature_dict["feature_type"] = feat_type
+        if genome is not None:
+            feature_dict["genome"] = genome
+
+        features = pd.DataFrame(feature_dict)
+        features.to_csv(feats_path, index=False, header=False, sep="\t")
+        with open(barcodes_path, "w") as f:
+            f.write(
+                "\n".join([bc for bc in self.matrix["matrix/barcodes"][:].astype(str)])
+            )
         return True
 
 
