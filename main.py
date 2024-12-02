@@ -437,9 +437,9 @@ class Converter:
 
             # TODO: check if all features are gene exp
 
-            features_type = ["Gene Expression"] * matrix.shape[0]
-            gene_ids = [""] * matrix.shape[0]
-            gene_names = [""] * matrix.shape[0]
+            # features_type = ["Gene Expression"] * matrix.shape[0]
+            # gene_ids = [""] * matrix.shape[0]
+            # gene_names = [""] * matrix.shape[0]
 
             gene_ids, gene_names, features_type = extract_features(
                 features=features, matrix=matrix
@@ -454,8 +454,8 @@ class Converter:
 
             # this is just necessary because of scanpy's only importing
             # gene_ids
-            if gene_ids == [""] * matrix.shape[0]:
-                gene_ids = gene_names
+            # if gene_ids == [""] * matrix.shape[0]:
+            #     gene_ids = gene_names
                 # gene_ids = list(range(matrix.shape[0]))
 
             dset_dict = {
