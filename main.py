@@ -5,9 +5,11 @@ from pathlib import Path
 import h5py
 import magic
 import pandas as pd
+import anndata as ad
 import typer
+import os
 from scipy.io import mmread, mmwrite
-from scipy.sparse import coo_matrix, csc_matrix
+from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
 from typing_extensions import Annotated
 
 app = typer.Typer()
@@ -151,6 +153,8 @@ class Converter:
             return self.mtx_to_h5()
         elif self.from_format == "h5" and self.to_format == "mtx":
             return self.h5_to_mtx()
+        elif self.from_format == "mtx" and self.to_format == "h5ad":
+            return self.mtx_to_anndata()
         else:
             raise NotImplementedError(
                 f"Conversion from {self.from_format} to {self.to_format} "
@@ -306,68 +310,68 @@ class Converter:
             raise e
         return True
 
-    def mtx_to_h5(self):
-        def extract_features(features, matrix):
-            features_type = ["Gene Expression"] * matrix.shape[0]
-            gene_ids = [""] * matrix.shape[0]
-            gene_names = [""] * matrix.shape[0]
-            if features.shape[1] == 1:
-                if pd.api.types.is_dtype_equal(
-                    features.index.dtype, pd.api.types.pandas_dtype("object")
-                ):
-                    if features.index[0].startswith("ENS"):
-                        gene_ids = features.index.to_list()
-                        gene_names = features[0].to_list()
-                    else:
-                        gene_names = features.index.to_list()
-                        gene_ids = features[0].to_list()
+    def extract_features(self, features, matrix):
+        features_type = ["Gene Expression"] * matrix.shape[0]
+        gene_ids = [""] * matrix.shape[0]
+        gene_names = [""] * matrix.shape[0]
+        if features.shape[1] == 1:
+            if pd.api.types.is_dtype_equal(
+                features.index.dtype, pd.api.types.pandas_dtype("object")
+            ):
+                if features.index[0].startswith("ENS"):
+                    gene_ids = features.index.to_list()
+                    gene_names = features[0].to_list()
                 else:
-                    if features.iloc[0, 0].startswith("ENS"):
-                        gene_ids = features[0].to_list()
-                    else:
-                        gene_names = features[0].to_list()
-            elif features.shape[1] == 2:
-                if pd.api.types.is_dtype_equal(
-                    features.index.dtype, pd.api.types.pandas_dtype("object")
-                ):
-                    if features.index[0].startswith("ENS"):
-                        gene_ids = features.index.to_list()
-                        gene_names = features[0].to_list()
-                        features_type = features[1].to_list()
-                    else:
-                        gene_names = features.index.to_list()
-                        gene_ids = features[0].to_list()
-                        features_type = features[1].to_list()
+                    gene_names = features.index.to_list()
+                    gene_ids = features[0].to_list()
+            else:
+                if features.iloc[0, 0].startswith("ENS"):
+                    gene_ids = features[0].to_list()
                 else:
-                    if features.iloc[0, 0].startswith("ENS"):
-                        gene_ids = features[0].to_list()
-                        gene_names = features[1].to_list()
-                    else:
-                        gene_names = features[0].to_list()
-                        gene_ids = features[1].to_list()
-            elif features.shape[1] == 3:
-                if pd.api.types.is_dtype_equal(
-                    features.index.dtype, pd.api.types.pandas_dtype("object")
-                ):
-                    if features.index[0].startswith("ENS"):
-                        gene_ids = features.index.to_list()
-                        gene_names = features[0].to_list()
-                        features_type = features[1].to_list()
-                    else:
-                        gene_names = features.index.to_list()
-                        gene_ids = features[0].to_list()
-                        features_type = features[1].to_list()
+                    gene_names = features[0].to_list()
+        elif features.shape[1] == 2:
+            if pd.api.types.is_dtype_equal(
+                features.index.dtype, pd.api.types.pandas_dtype("object")
+            ):
+                if features.index[0].startswith("ENS"):
+                    gene_ids = features.index.to_list()
+                    gene_names = features[0].to_list()
+                    features_type = features[1].to_list()
                 else:
-                    if features.iloc[0, 0].startswith("ENS"):
-                        gene_ids = features[0].to_list()
-                        gene_names = features[1].to_list()
-                        features_type = features[2].to_list()
-                    else:
-                        gene_names = features[0].to_list()
-                        gene_ids = features[1].to_list()
-                        features_type = features[2].to_list()
-            return gene_ids, gene_names, features_type
+                    gene_names = features.index.to_list()
+                    gene_ids = features[0].to_list()
+                    features_type = features[1].to_list()
+            else:
+                if features.iloc[0, 0].startswith("ENS"):
+                    gene_ids = features[0].to_list()
+                    gene_names = features[1].to_list()
+                else:
+                    gene_names = features[0].to_list()
+                    gene_ids = features[1].to_list()
+        elif features.shape[1] == 3:
+            if pd.api.types.is_dtype_equal(
+                features.index.dtype, pd.api.types.pandas_dtype("object")
+            ):
+                if features.index[0].startswith("ENS"):
+                    gene_ids = features.index.to_list()
+                    gene_names = features[0].to_list()
+                    features_type = features[1].to_list()
+                else:
+                    gene_names = features.index.to_list()
+                    gene_ids = features[0].to_list()
+                    features_type = features[1].to_list()
+            else:
+                if features.iloc[0, 0].startswith("ENS"):
+                    gene_ids = features[0].to_list()
+                    gene_names = features[1].to_list()
+                    features_type = features[2].to_list()
+                else:
+                    gene_names = features[0].to_list()
+                    gene_ids = features[1].to_list()
+                    features_type = features[2].to_list()
+        return gene_ids, gene_names, features_type
 
+    def mtx_to_h5(self):
         def create_h5_dataset(
             h5_file,
             name,
@@ -441,7 +445,7 @@ class Converter:
             # gene_ids = [""] * matrix.shape[0]
             # gene_names = [""] * matrix.shape[0]
 
-            gene_ids, gene_names, features_type = extract_features(
+            gene_ids, gene_names, features_type = self.extract_features(
                 features=features, matrix=matrix
             )
 
@@ -489,6 +493,41 @@ class Converter:
                     dtype=dset_dict[key]["dtype"],
                 )
 
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
+        return True
+
+    def mtx_to_anndata(self):
+        feats, barcodes, matrix, _ = self.read_in_mtx()
+        self.create_output_dir()
+        try:
+            ad_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5ad")
+            if Path(ad_path).exists():
+                if self.force:
+                    os.remove(ad_path)
+                else:
+                    raise FileExistsError
+            adata = ad.AnnData(csc_matrix(matrix))#, filename=str(ad_path), filemode="a")
+        except FileExistsError as e:
+            print(
+                f"File {ad_path} already exists."
+                + " Select a different output directory or use --force/-f."
+            )
+            raise e
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
+        gene_ids, gene_names, features_type = self.extract_features(
+            features=feats, matrix=matrix
+        )
+        adata.obs_names = barcodes[0].tolist()
+        if gene_ids == [""] * matrix.shape[0]:
+            adata.var_names = gene_names
+        else:
+            adata.var_names = gene_ids
+        try:
+            adata.write(filename=str(ad_path))#, compression="gzip")
         except Exception as e:
             print(f"Error: {e}")
             raise e

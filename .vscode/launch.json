@@ -67,6 +67,20 @@
                 "--to", "mtx",
                 "--force"
             ]
-        }
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Debug mtx to anndata",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "test_files/pbmc1k_subset",
+                // "data/pbmc_1k/filtered_feature_bc_matrix",
+                "-d", "sandbox/debug",
+                "--from", "mtx",
+                "--to", "h5ad",
+                "--force"
+            ]
+        },
     ]
 }
