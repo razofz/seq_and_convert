@@ -5,6 +5,7 @@ from main import Converter
 import json
 import scanpy as sc
 import os
+# import rpy2.situation
 
 mimetypes_table = json.load(open("mimetypes.json", "r"))
 
@@ -14,7 +15,7 @@ test_files = {
     # "h5": "data/500_PBMC/500_PBMC_3p_LT_Chromium_X_raw_feature_bc_matrix.h5",
     # "tsv": "test_files/10x/features.tsv",
     # "tsv.gz": "test_files/10x_gz/features.tsv.gz",
-    "mtx": "test_files/10x/matrix.mtx",
+    "mtx": "test_files/pbmc1k_subset/matrix.mtx",
     # "mtx.gz": "test_files/10x_gz/matrix.mtx.gz",
 }
 
@@ -229,6 +230,11 @@ def mtx_to_h5_converter(tmp_path):
 
 
 def test_seurat_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
+    # ld_lib_path = rpy2.situation.r_ld_library_path_from_subprocess(
+    #     rpy2.situation.r_home_from_subprocess()
+    # )
+    # os.environ["LD_LIBRARY_PATH"] = ld_lib_path.join(os.environ["LD_LIBRARY_PATH"])
+    # os.environ["LD_LIBRARY_PATH"] = f"{$(python -m rpy2.situation LD_LIBRARY_PATH)}:${LD_LIBRARY_PATH}"
     assert csv_to_h5_converter.convert() is True
     # using my system R for now, when turning this into
     # a Docker container there'll be a system R installation there
@@ -236,7 +242,7 @@ def test_seurat_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
     try:
         assert (
             os.system(
-                "/usr/local/bin/R -e 'print(R.home()); library(Seurat); "
+                "R -e 'library(Seurat); "
                 + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
             )
             == 0
@@ -247,7 +253,7 @@ def test_seurat_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
     try:
         assert (
             os.system(
-                "/usr/local/bin/R -e 'print(R.home()); library(Seurat); "
+                "R -e 'library(Seurat); "
                 + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
             )
             == 0

@@ -3,13 +3,15 @@ import mimetypes
 from pathlib import Path
 
 import h5py
+import shutil
+import gzip
 import magic
 import pandas as pd
 import anndata as ad
 import typer
 import os
 from scipy.io import mmread, mmwrite
-from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
+from scipy.sparse import coo_matrix, csc_matrix
 from typing_extensions import Annotated
 
 app = typer.Typer()
@@ -460,7 +462,7 @@ class Converter:
             # gene_ids
             # if gene_ids == [""] * matrix.shape[0]:
             #     gene_ids = gene_names
-                # gene_ids = list(range(matrix.shape[0]))
+            # gene_ids = list(range(matrix.shape[0]))
 
             dset_dict = {
                 "matrix/features/feature_type": {
@@ -508,7 +510,7 @@ class Converter:
                     os.remove(ad_path)
                 else:
                     raise FileExistsError
-            adata = ad.AnnData(csc_matrix(matrix))#, filename=str(ad_path), filemode="a")
+            adata = ad.AnnData(csc_matrix(matrix), filename=str(ad_path), filemode="a")
         except FileExistsError as e:
             print(
                 f"File {ad_path} already exists."
@@ -527,7 +529,7 @@ class Converter:
         else:
             adata.var_names = gene_ids
         try:
-            adata.write(filename=str(ad_path))#, compression="gzip")
+            adata.write(compression="gzip")
         except Exception as e:
             print(f"Error: {e}")
             raise e
@@ -570,18 +572,24 @@ class Converter:
         mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
         self.create_output_dir(mtx_output_dir)
         mtx_path = mtx_output_dir / Path("matrix.mtx")
-        feats_path = mtx_output_dir / Path("features.tsv")
-        barcodes_path = mtx_output_dir / Path("barcodes.tsv")
+        feats_path = mtx_output_dir / Path("features.tsv.gz")
+        barcodes_path = mtx_output_dir / Path("barcodes.tsv.gz")
         for p in [mtx_path, feats_path, barcodes_path]:
             if not self.force and p.exists():
                 raise FileExistsError(
                     f"File {p} already exists. Use --force/-f to overwrite."
                 )
         mmwrite(target=mtx_path, a=coo_matrix(self.matrix))
-        with open(feats_path, "w") as f:
-            f.write("\n".join(self.matrix.index))
-        with open(barcodes_path, "w") as f:
-            f.write("\n".join(self.matrix.columns))
+        with open(mtx_path, "rb") as f_in:
+            with gzip.open(Path(str(mtx_path) + ".gz"), "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(mtx_path)
+        with gzip.open(feats_path, "wb") as f:
+            f.write(b"\n".join([x.encode() for x in self.matrix.index]))
+            f.write(b"\n")
+        with gzip.open(barcodes_path, "wb") as f:
+            f.write(b"\n".join([x.encode() for x in self.matrix.columns]))
+            f.write(b"\n")
         return True
 
     def h5_to_mtx(self):
