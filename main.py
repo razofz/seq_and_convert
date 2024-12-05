@@ -451,6 +451,12 @@ class Converter:
                 features=features, matrix=matrix
             )
 
+            if features_type is None or len(features_type) == 0:
+                features_type = ["Gene Expression"] * matrix.shape[0]
+            if gene_ids is None or len(gene_ids) == 0:
+                gene_ids = gene_names
+            elif gene_names is None or len(gene_names) == 0:
+                gene_names = gene_ids
             if self.genome is not None:
                 gnome = [self.genome] * matrix.shape[0]
                 dtype = f"S{len(self.genome)}"
@@ -574,19 +580,33 @@ class Converter:
         mtx_path = mtx_output_dir / Path("matrix.mtx")
         feats_path = mtx_output_dir / Path("features.tsv.gz")
         barcodes_path = mtx_output_dir / Path("barcodes.tsv.gz")
+
         for p in [mtx_path, feats_path, barcodes_path]:
             if not self.force and p.exists():
                 raise FileExistsError(
                     f"File {p} already exists. Use --force/-f to overwrite."
                 )
+
+        features_type = ["Gene Expression"] * self.matrix.shape[0]
+        gene_ids = self.matrix.index
+        gene_names = self.matrix.index
+        
         mmwrite(target=mtx_path, a=coo_matrix(self.matrix))
         with open(mtx_path, "rb") as f_in:
             with gzip.open(Path(str(mtx_path) + ".gz"), "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
         os.remove(mtx_path)
-        with gzip.open(feats_path, "wb") as f:
-            f.write(b"\n".join([x.encode() for x in self.matrix.index]))
-            f.write(b"\n")
+        features = pd.DataFrame(
+            {
+                "gene_id": gene_ids,
+                "gene_name": gene_names,
+                "feature_type": features_type,
+            }
+        )
+        features.to_csv(feats_path, index=False, header=False, sep="\t")
+        # with gzip.open(feats_path, "wb") as f:
+        #     f.write(b"\n".join([x.encode() for x in self.matrix.index]))
+        #     f.write(b"\n")
         with gzip.open(barcodes_path, "wb") as f:
             f.write(b"\n".join([x.encode() for x in self.matrix.columns]))
             f.write(b"\n")
@@ -644,8 +664,14 @@ class Converter:
             feature_dict["feature_type"] = feat_type
         if genome is not None:
             feature_dict["genome"] = genome
+        
+        if feature_dict["id"] is None:
+            feature_dict["id"] = feature_dict["name"]
+        if feature_dict["name"] is None:
+            feature_dict["name"] = feature_dict["id"]
 
         features = pd.DataFrame(feature_dict)
+        assert features.shape[1] >= 2
         features.to_csv(feats_path, index=False, header=False, sep="\t")
         with open(barcodes_path, "w") as f:
             f.write(

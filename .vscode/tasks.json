@@ -1,0 +1,48 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "docker-build",
+			"label": "docker-build",
+			"platform": "python",
+			"dockerBuild": {
+				"tag": "seqandconvert:latest",
+				"dockerfile": "${workspaceFolder}/Dockerfile",
+				"context": "${workspaceFolder}"//,
+				// "pull": true
+			}
+		},
+		{
+			"type": "docker-run",
+			"label": "docker-run: debug",
+			"dependsOn": [
+				"docker-build"
+			],
+			"dockerRun": {
+				"containerName": "seqandconvert",
+				"image": "seqandconvert:latest",
+				"removeContainerAfterDebug": true,
+				"entrypoint": ["/usr/local/bin/_entrypoint.sh"],
+				"volumes": [
+					{
+						"containerPath": "/app",
+						"localPath": "${workspaceFolder}"
+					}
+				],
+			},
+			"python": {
+				"args": [
+					"sandbox/pbmc1k_subset.h5",
+					"-d",
+					"sandbox/debug",
+					"--from",
+					"h5",
+					"--to",
+					"mtx",
+					"--force"
+				],
+				"file": "main.py"
+			}
+		}
+	]
+}

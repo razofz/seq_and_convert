@@ -8,9 +8,12 @@
             "program": "${workspaceFolder}/main.py",
             "args": [
                 "test_files/pbmc1k_subset.csv",
-                "-d", "sandbox/debug",
-                "--from", "csv",
-                "--to", "mtx",
+                "-d",
+                "sandbox/debug",
+                "--from",
+                "csv",
+                "--to",
+                "mtx",
                 "--force"
             ]
         },
@@ -20,12 +23,13 @@
             "name": "Debug mtx to csv",
             "program": "${workspaceFolder}/main.py",
             "args": [
-                // "sandbox/pbmc1k_subset",
                 "data/pbmc_1k/filtered_feature_bc_matrix",
-                "-d", "sandbox/debug",
-                "--from", "mtx",
-                "--to", "csv",
-                // "--force"
+                "-d",
+                "sandbox/debug",
+                "--from",
+                "mtx",
+                "--to",
+                "csv"
             ]
         },
         {
@@ -35,9 +39,12 @@
             "program": "${workspaceFolder}/main.py",
             "args": [
                 "test_files/pbmc1k_subset.csv",
-                "-d", "sandbox/debug",
-                "--from", "csv",
-                "--to", "h5",
+                "-d",
+                "sandbox/debug",
+                "--from",
+                "csv",
+                "--to",
+                "h5",
                 "--force"
             ]
         },
@@ -47,11 +54,13 @@
             "name": "Debug mtx to h5",
             "program": "${workspaceFolder}/main.py",
             "args": [
-                // "test_files/pbmc1k_subset",
                 "data/pbmc_1k/filtered_feature_bc_matrix",
-                "-d", "sandbox/debug",
-                "--from", "mtx",
-                "--to", "h5",
+                "-d",
+                "sandbox/debug",
+                "--from",
+                "mtx",
+                "--to",
+                "h5",
                 "--force"
             ]
         },
@@ -62,9 +71,12 @@
             "program": "${workspaceFolder}/main.py",
             "args": [
                 "sandbox/pbmc1k_subset.h5",
-                "-d", "sandbox/debug",
-                "--from", "h5",
-                "--to", "mtx",
+                "-d",
+                "sandbox/debug",
+                "--from",
+                "h5",
+                "--to",
+                "mtx",
                 "--force"
             ]
         },
@@ -75,12 +87,29 @@
             "program": "${workspaceFolder}/main.py",
             "args": [
                 "test_files/pbmc1k_subset",
-                // "data/pbmc_1k/filtered_feature_bc_matrix",
-                "-d", "sandbox/debug",
-                "--from", "mtx",
-                "--to", "h5ad",
+                "-d",
+                "sandbox/debug",
+                "--from",
+                "mtx",
+                "--to",
+                "h5ad",
                 "--force"
             ]
         },
+        {
+            "name": "Docker: Python - General",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run: debug",
+            "python": {
+                "pathMappings": [
+                    {
+                        "localRoot": "${workspaceFolder}",
+                        "remoteRoot": "/app"
+                    }
+                ],
+                "projectType": "general"
+            }
+        }
     ]
 }

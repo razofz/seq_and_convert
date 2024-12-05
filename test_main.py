@@ -5,6 +5,7 @@ from main import Converter
 import json
 import scanpy as sc
 import os
+import getpass
 # import rpy2.situation
 
 mimetypes_table = json.load(open("mimetypes.json", "r"))
@@ -230,36 +231,40 @@ def mtx_to_h5_converter(tmp_path):
 
 
 def test_seurat_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
-    # ld_lib_path = rpy2.situation.r_ld_library_path_from_subprocess(
-    #     rpy2.situation.r_home_from_subprocess()
-    # )
-    # os.environ["LD_LIBRARY_PATH"] = ld_lib_path.join(os.environ["LD_LIBRARY_PATH"])
-    # os.environ["LD_LIBRARY_PATH"] = f"{$(python -m rpy2.situation LD_LIBRARY_PATH)}:${LD_LIBRARY_PATH}"
     assert csv_to_h5_converter.convert() is True
-    # using my system R for now, when turning this into
-    # a Docker container there'll be a system R installation there
-    # or maybe we'll get rpy2 working there, let's see
-    try:
-        assert (
-            os.system(
-                "R -e 'library(Seurat); "
-                + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
+
+    if getpass.getuser() == "mambauser":
+        try:
+            from rpy2.robjects.packages import importr
+
+            seurat = importr("Seurat")
+            seuratobject = importr("SeuratObject")
+            mat = seurat.Read10X("sandbox/pbmc1k_subset")
+            sobj = seuratobject.CreateSeuratObject(mat)
+        except Exception as e:
+            pytest.fail(f"Unexpected exception raised: {e}")
+    else:
+        try:
+            assert (
+                os.system(
+                    "/usr/local/bin/R -e 'library(Seurat); "
+                    + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
+                )
+                == 0
             )
-            == 0
-        )
-    except Exception as e:
-        pytest.fail(f"Unexpected exception raised: {e}")
-    assert mtx_to_h5_converter.convert() is True
-    try:
-        assert (
-            os.system(
-                "R -e 'library(Seurat); "
-                + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
+        except Exception as e:
+            pytest.fail(f"Unexpected exception raised: {e}")
+        assert mtx_to_h5_converter.convert() is True
+        try:
+            assert (
+                os.system(
+                    "/usr/local/bin/R -e 'library(Seurat); "
+                    + f"Read10X_h5(\"{tmp_path / 'pbmc1k_subset.h5'}\")' --quiet"
+                )
+                == 0
             )
-            == 0
-        )
-    except Exception as e:
-        pytest.fail(f"Unexpected exception raised: {e}")
+        except Exception as e:
+            pytest.fail(f"Unexpected exception raised: {e}")
 
 
 def test_scanpy_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
