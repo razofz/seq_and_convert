@@ -7,6 +7,7 @@ RUN micromamba install -y -n base -f /tmp/env.yaml && \
 # Set the working directory
 WORKDIR /app
 
+# COPY --chown=$MAMBA_USER:$MAMBA_USER test_files /app/test_files/
+COPY --chown=$MAMBA_USER:$MAMBA_USER test_seq_and_convert /app/test_seq_and_convert/
 COPY --chown=$MAMBA_USER:$MAMBA_USER *.py mimetypes.json /app/
-COPY --chown=$MAMBA_USER:$MAMBA_USER test_files /app/test_files/
 # ARG MAMBA_DOCKERFILE_ACTIVATE=1

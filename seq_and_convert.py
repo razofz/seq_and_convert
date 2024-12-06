@@ -20,7 +20,7 @@ app = typer.Typer()
 class Converter:
     def __init__(
         self,
-        filename: str,
+        filename: str | Path,
         from_format: str,
         to_format: str,
         genome: str = None,
