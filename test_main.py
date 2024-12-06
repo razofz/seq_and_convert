@@ -1,14 +1,114 @@
-import pytest
-
-# from pathlib import Path
-from main import Converter
-import json
-import scanpy as sc
-import os
 import getpass
-# import rpy2.situation
+import gzip
+import mimetypes
 
-mimetypes_table = json.load(open("mimetypes.json", "r"))
+import json
+import os
+from pathlib import Path
+
+import magic
+import pandas as pd
+import pytest
+import scanpy as sc
+from scipy.io import mmread, mmwrite
+from scipy.sparse import coo_matrix
+
+from main import Converter
+
+
+# mimetypes_table = json.load(open("mimetypes.json", "r"))
+@pytest.fixture(scope="module")
+def mimetypes_table():
+    formats = [
+        "mtx",
+        "mtx.gz",
+        "csv",
+        "tsv",
+        "tsv.gz",
+        # "json",
+        "h5ad",
+        "h5",
+        # "zarr",
+        # "gz",
+        # "Rdata",
+    ]
+    test_files = {
+        "csv": "output/pbmc3k/var.csv",
+        "h5ad": "data/pbmc3k_raw.h5ad",
+        "h5": "data/500_PBMC/500_PBMC_3p_LT_Chromium_X_raw_feature_bc_matrix.h5",
+        "tsv.gz": "raw_feature_bc_matrix/features.tsv.gz",
+        "mtx.gz": "raw_feature_bc_matrix/matrix.mtx.gz",
+        "mtx": "raw_feature_bc_matrix/unzipped/matrix.mtx",
+        "tsv": "raw_feature_bc_matrix/unzipped/features.tsv",
+    }
+    table = dict()
+    for format in formats:
+        file = test_files[format]
+        table[format] = {
+            "magic": magic.from_file(file),
+            "magic_mime": magic.from_file(file, mime=True),
+            "mimetype_guess_type": mimetypes.guess_type(file)[0],
+            "mimetype_guess_encoding": mimetypes.guess_type(file)[1],
+            "Path_suffix": Path(file).suffix,
+            "splitext": os.path.splitext(file)[1],
+        }
+    return table
+
+
+@pytest.fixture(scope="module")
+def setup_test_files(tmp_path, mimetypes_table):
+    from scanpy.datasets import pbmc3k
+
+    pbmc = pbmc3k()
+    subset_sc = pbmc[:100, :100]
+    del pbmc
+    df = subset_sc.to_df()
+    del subset_sc
+
+    sanity_check = df.apply(sum, axis=1)
+    # make sure there aren't only zeroes in the df
+    assert sanity_check[(sanity_check != 0)].shape != (0,)
+    df.to_csv(tmp_path + "/test_files/pbmc1k_subset.csv")
+    df.transpose().to_csv(tmp_path + "/test_files/pbmc1k_subset_transposed.csv")
+    df.iloc[:0].to_csv(tmp_path + "/test_files/pbmc1k_empty.csv")
+    tamper = df.copy()
+    tamper.columns = list(tamper.columns[:10]) * 10
+    tamper.to_csv(tmp_path + "/test_files/pbmc1k_subset_identical_colnames.csv")
+
+    Path.mkdir(
+        Path(tmp_path + "/test_files/pbmc1k_subset"), parents=True, exist_ok=True
+    )
+    mmwrite(
+        target=tmp_path + "/test_files/pbmc1k_subset" / Path("matrix.mtx"),
+        a=coo_matrix(df),
+    )
+    with open(tmp_path + "/test_files/pbmc1k_subset" / Path("features.tsv"), "w") as f:
+        f.write("\n".join(df.index))
+    with open(tmp_path + "/test_files/pbmc1k_subset" / Path("barcodes.tsv"), "w") as f:
+        f.write("\n".join(df.columns))
+
+    Path.mkdir(
+        Path(tmp_path + "/test_files/pbmc1k_subset_gzipped"),
+        parents=True,
+        exist_ok=True,
+    )
+    for file in ["features.tsv", "barcodes.tsv", "matrix.mtx"]:
+        with open(tmp_path + "/test_files/pbmc1k_subset" / Path(file), "rb") as f:
+            with gzip.open(
+                tmp_path + "/test_files/pbmc1k_subset_gzipped" / Path(file + ".gz"),
+                "wb",
+            ) as g:
+                g.write(f.read())
+
+    Path.mkdir(
+        Path(tmp_path + "/test_files/false_gzipped_mtx"), parents=True, exist_ok=True
+    )
+    for file in ["features.tsv", "barcodes.tsv", "matrix.mtx"]:
+        with gzip.open(
+            tmp_path + "/test_files/false_gzipped_mtx" / Path(file + ".gz"), "wb"
+        ) as g:
+            g.write(json.dump(mimetypes_table))
+
 
 test_files = {
     "csv": "test_files/GSE164073_raw_counts_GRCh38.p13_NCBI.csv",
@@ -25,7 +125,7 @@ fake_files = {
 }
 
 
-def test_converter_decide_filetype():
+def test_converter_decide_filetype(mimetypes_table):
     c = Converter("test_files/pbmc1k_subset.csv", "csv", "mtx")
     assert c.filename == "test_files/pbmc1k_subset.csv"
     assert c.from_format == "csv"
