@@ -1,6 +1,7 @@
 import getpass
 import gzip
 import mimetypes
+import shutil
 
 import json
 import os
@@ -267,3 +268,123 @@ def test_scanpy_readin(tmp_path, csv_to_h5_converter, mtx_to_h5_converter):
         sc.read_10x_h5(tmp_path / "pbmc3k_subset.h5")
     except Exception as e:
         pytest.fail(f"Unexpected exception raised: {e}")
+
+
+class TestExtractFeatures:
+    @pytest.fixture
+    def barcodes(self):
+        return pd.DataFrame(["AGTC-1", "GTCA-1", "TCAG-1"])
+
+    def make_dummy_mtx(self, tmp_path, features, barcodes, matrix):
+        os.mkdir(tmp_path / "dummy")
+        mtx_path = tmp_path / "dummy" / "matrix.mtx.gz"
+        mmwrite(mtx_path, coo_matrix(matrix))
+        with open(mtx_path, "rb") as f_in:
+            with gzip.open(Path(str(mtx_path) + ".gz"), "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(mtx_path)
+        features.to_csv(
+            tmp_path / "dummy" / "features.tsv.gz", sep="\t", index=False, header=False
+        )
+        barcodes.to_csv(
+            tmp_path / "dummy" / "barcodes.tsv.gz", sep="\t", index=False, header=False
+        )
+
+    def test_extract_features_single_column_gene_ids(self, tmp_path, barcodes):
+        features = pd.DataFrame(["gene1", "gene2", "gene3"], columns=["gene_id"])
+        features.index = ["ENS0001", "ENS0002", "ENS0003"]
+        matrix = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
+        self.make_dummy_mtx(tmp_path, features, barcodes, matrix)
+        converter = Converter(tmp_path / "dummy", "mtx", "csv", output_dir=tmp_path)
+        gene_ids, gene_names, features_type = converter.extract_features(
+            features, matrix
+        )
+        assert gene_ids == ["ENS0001", "ENS0002", "ENS0003"]
+        assert gene_names == ["gene1", "gene2", "gene3"]
+        assert features_type == ["Gene Expression"] * 3
+
+    def test_extract_features_single_column_gene_names(self, tmp_path, barcodes):
+        features = pd.DataFrame(
+            ["ENS0001", "ENS0002", "ENS0003"], columns=["gene_name"]
+        )
+        features.index = ["gene1", "gene2", "gene3"]
+        matrix = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
+        self.make_dummy_mtx(tmp_path, features, barcodes, matrix)
+        converter = Converter(tmp_path / "dummy", "mtx", "csv", output_dir=tmp_path)
+        gene_ids, gene_names, features_type = converter.extract_features(
+            features, matrix
+        )
+        assert gene_ids == ["ENS0001", "ENS0002", "ENS0003"]
+        assert gene_names == ["gene1", "gene2", "gene3"]
+        assert features_type == ["Gene Expression"] * 3
+
+    def test_extract_features_two_columns(self, tmp_path, barcodes):
+        features = pd.DataFrame(
+            {
+                "gene_id": ["ENS0001", "ENS0002", "ENS0003"],
+                "gene_name": ["gene1", "gene2", "gene3"],
+            }
+        )
+        matrix = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
+        self.make_dummy_mtx(tmp_path, features, barcodes, matrix)
+        converter = Converter(tmp_path / "dummy", "mtx", "csv", output_dir=tmp_path)
+        gene_ids, gene_names, features_type = converter.extract_features(
+            features, matrix
+        )
+        assert gene_ids == ["ENS0001", "ENS0002", "ENS0003"]
+        assert gene_names == ["gene1", "gene2", "gene3"]
+        assert features_type == ["Gene Expression"] * 3
+
+    def test_extract_features_three_columns(self, tmp_path, barcodes):
+        features = pd.DataFrame(
+            {
+                "gene_id": ["ENS0001", "ENS0002", "ENS0003"],
+                "gene_name": ["gene1", "gene2", "gene3"],
+                "feature_type": ["type1", "type2", "type3"],
+            }
+        )
+        matrix = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
+        self.make_dummy_mtx(tmp_path, features, barcodes, matrix)
+        converter = Converter(tmp_path / "dummy", "mtx", "csv", output_dir=tmp_path)
+        gene_ids, gene_names, features_type = converter.extract_features(
+            features, matrix
+        )
+        assert gene_ids == ["ENS0001", "ENS0002", "ENS0003"]
+        assert gene_names == ["gene1", "gene2", "gene3"]
+        assert features_type == ["type1", "type2", "type3"]
+
+    def test_extract_features_index_as_gene_ids(self, tmp_path, barcodes):
+        features = pd.DataFrame(
+            {
+                "gene_name": ["gene1", "gene2", "gene3"],
+                "feature_type": ["type1", "type2", "type3"],
+            }
+        )
+        features.index = ["ENS0001", "ENS0002", "ENS0003"]
+        matrix = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
+        self.make_dummy_mtx(tmp_path, features, barcodes, matrix)
+        converter = Converter(tmp_path / "dummy", "mtx", "csv", output_dir=tmp_path)
+        gene_ids, gene_names, features_type = converter.extract_features(
+            features, matrix
+        )
+        assert gene_ids == ["ENS0001", "ENS0002", "ENS0003"]
+        assert gene_names == ["gene1", "gene2", "gene3"]
+        assert features_type == ["type1", "type2", "type3"]
+
+    def test_extract_features_index_as_gene_names(self, tmp_path, barcodes):
+        features = pd.DataFrame(
+            {
+                "gene_id": ["ENS0001", "ENS0002", "ENS0003"],
+                "feature_type": ["type1", "type2", "type3"],
+            }
+        )
+        features.index = ["gene1", "gene2", "gene3"]
+        matrix = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
+        self.make_dummy_mtx(tmp_path, features, barcodes, matrix)
+        converter = Converter(tmp_path / "dummy", "mtx", "csv", output_dir=tmp_path)
+        gene_ids, gene_names, features_type = converter.extract_features(
+            features, matrix
+        )
+        assert gene_ids == ["ENS0001", "ENS0002", "ENS0003"]
+        assert gene_names == ["gene1", "gene2", "gene3"]
+        assert features_type == ["type1", "type2", "type3"]
