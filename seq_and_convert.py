@@ -18,6 +18,51 @@ app = typer.Typer()
 
 
 class Converter:
+    """
+    Converter class for converting between different file formats.
+
+        filename (str | Path): The input file or directory path.
+        from_format (str): The format of the input file.
+        to_format (str): The desired format of the output file.
+        output_dir (str): The directory where the output file will be saved.
+        force (bool): Whether to overwrite existing files.
+        lookup_table (dict): A lookup table for file type properties.
+        filetype_checks (list): A list of file type checks to perform.
+        matrix (scipy.sparse.coo_matrix): The matrix data.
+        mtx (str): The path to the matrix file.
+        barcodes (str): The path to the barcodes file.
+        features (str): The path to the features file.
+        genome (str): The genome identifier.
+
+    Methods:
+        __init__(filename, from_format, to_format, genome=None, force=False, output_dir="."):
+            Initializes the Converter instance.
+        __str__():
+            Returns a string representation of the Converter instance.
+        decide_filetype():
+            Determines the file type of the given file or files in a directory.
+        convert():
+            Converts data from one format to another.
+        read_in_mtx():
+        read_in_csv():
+        read_in_h5():
+        create_output_dir(directory=None):
+        csv_to_h5():
+            Converts a CSV file to an HDF5 file.
+        extract_features(features, matrix):
+            Extracts features from the given features DataFrame and matrix.
+        mtx_to_h5():
+            Converts a matrix market (MTX) file to an HDF5 file.
+        mtx_to_anndata():
+            Converts a matrix market (MTX) file to an AnnData (H5AD) file.
+        mtx_to_csv():
+            Converts a matrix market (MTX) file to a CSV file.
+        csv_to_mtx():
+            Converts a CSV file to a matrix market (MTX) file.
+        h5_to_mtx():
+            Converts an HDF5 file to a matrix market (MTX) file.
+    """
+
     def __init__(
         self,
         filename: str | Path,
@@ -61,7 +106,40 @@ class Converter:
         return f"{self.filename}"
 
     def decide_filetype(self):
+        """
+        Determines the file type of the given file or files in a directory by comparing their properties against a lookup table.
+
+        If the input is a directory, it expects exactly three files in the directory, corresponding to a '10X style' format
+        (matrix.mtx, features.tsv, barcodes.tsv), which can also be compressed (e.g., matrix.mtx.gz). It identifies the file
+        types and assigns them to the appropriate attributes (mtx, features, barcodes).
+
+        If the input is a single file, it determines the file type based on its properties.
+
+        Returns:
+            str or None: The determined file type key from the lookup table, or None if no match is found.
+
+        Raises:
+            FileNotFoundError: If the input is a directory and no files are found.
+            ValueError: If the input is a directory and the number of files is not exactly three.
+        """
+
         def control_filetype(filename):
+            """
+            Determines the file type of the given file by comparing its properties against a lookup table.
+
+            Args:
+                filename (str): The path to the file whose type is to be determined.
+
+            Returns:
+                str or None: The key from the lookup table that matches the file's properties, or None if no match is found.
+
+            The function checks the following properties of the file against the lookup table:
+                - MIME type from the file's magic number
+                - Guessed MIME encoding type
+                - Guessed MIME type
+                - File extension (suffix)
+                - Magic number (with special handling for ".gz" files)
+            """
             for key in self.lookup_table:
                 eligible = True
                 if not self.lookup_table[key]["magic_mime"] == magic.from_file(
@@ -145,6 +223,23 @@ class Converter:
         return None
 
     def convert(self):
+        """
+        The function responsible for converting data from one format to another.
+
+        Supported conversions:
+        - CSV to MTX
+        - MTX to CSV
+        - CSV to H5
+        - MTX to H5
+        - H5 to MTX
+        - MTX to H5AD
+
+        Raises:
+            NotImplementedError: If the conversion from `self.from_format` to `self.to_format` is not implemented.
+
+        Returns:
+            The result of the conversion method corresponding to the specified formats.
+        """
         if self.from_format == "csv" and self.to_format == "mtx":
             return self.csv_to_mtx()
         elif self.from_format == "mtx" and self.to_format == "csv":
@@ -164,6 +259,25 @@ class Converter:
             )
 
     def read_in_mtx(self):
+        """
+        Reads in a matrix market (MTX) file along with associated barcodes and features files.
+
+        This function reads the MTX file specified by `self.mtx`, the barcodes file specified by `self.barcodes`,
+        and the features file specified by `self.features`. It performs several checks to ensure the integrity
+        and consistency of the data, such as verifying that the number of barcodes matches the number of columns
+        in the matrix and that the number of features matches the number of rows in the matrix.
+
+        Returns:
+            tuple: A tuple containing the following elements:
+                - features (pd.DataFrame): The features data frame.
+                - barcodes (pd.DataFrame): The barcodes data frame.
+                - matrix (scipy.sparse.coo_matrix): The matrix market file read into a sparse matrix.
+                - mtx_feats (pd.Series or None): A series containing the selected feature identifiers, or None if not found.
+
+        Raises:
+            AssertionError: If the number of barcodes does not match the number of columns in the matrix,
+                            or if the number of features does not match the number of rows in the matrix.
+        """
         matrix = mmread(self.mtx)
         barcodes = pd.read_table(self.barcodes, header=None)
         assert barcodes.shape[0] == matrix.shape[1]
@@ -193,6 +307,18 @@ class Converter:
         return features, barcodes, matrix, mtx_feats
 
     def read_in_csv(self):
+        """
+        Reads a CSV file into a pandas DataFrame and performs necessary checks and adjustments.
+
+        This method attempts to read a CSV file specified by `self.filename` into `self.matrix`.
+        It handles potential issues such as:
+        - The entire DataFrame being read as object type, indicating a possible header row issue.
+        - The first column being read as row names/index, indicating a possible index column issue.
+        - Non-unique column names, which could indicate issues with cell barcodes.
+
+        Raises:
+            ValueError: If non-unique column names are detected, indicating potential issues with cell barcodes.
+        """
         try:
             self.matrix = pd.read_csv(self.filename)
         except Exception as e:
@@ -219,6 +345,21 @@ class Converter:
                         # just the first case of identical barcodes for now
 
     def read_in_h5(self):
+        """
+        Reads an HDF5 file specified by the instance's filename attribute.
+
+        This method attempts to open the HDF5 file in read mode. If the file cannot be opened,
+        an error message is printed. The method then checks for the presence of specific keys
+        within the HDF5 file, assuming it follows the 10x Genomics format. If all keys are
+        present, the HDF5 file is assigned to the instance's matrix attribute.
+
+        Raises:
+            Exception: If there is an error opening the HDF5 file.
+
+        Attributes:
+            filename (str): The path to the HDF5 file.
+            matrix (h5py.File): The opened HDF5 file if all required keys are present.
+        """
         try:
             h5_file = h5py.File(self.filename, "r")
         except Exception as e:
@@ -245,6 +386,16 @@ class Converter:
         self.matrix = h5_file
 
     def create_output_dir(self, directory: str = None):
+        """
+        Creates the output directory if it does not exist.
+
+        Args:
+            directory (str, optional): The path to the directory to create.
+                                       If None, uses the instance's output_dir attribute.
+
+        Raises:
+            FileExistsError: If the directory already exists and self.force is not set to True.
+        """
         if directory is None:
             directory = self.output_dir
         if not Path(directory).exists():
@@ -258,6 +409,22 @@ class Converter:
                 raise e
 
     def csv_to_h5(self):
+        """
+        Converts a CSV file to an HDF5 file.
+
+        This method reads a CSV file, converts its contents to a sparse matrix,
+        and saves the matrix and its metadata to an HDF5 file. The output file
+        will be saved in the specified output directory with the same name as
+        the input file but with an .h5 extensionnstead of a .csv one.
+
+        Raises:
+            FileExistsError: If the output HDF5 file already exists and the force
+                             flag is not set.
+            Exception: If any error occurs during the conversion process.
+
+        Returns:
+            bool: True if the conversion is successful.
+        """
         self.read_in_csv()
 
         h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
@@ -313,6 +480,23 @@ class Converter:
         return True
 
     def extract_features(self, features, matrix):
+        """
+        Extracts gene IDs, gene names, and feature types from the given features DataFrame.
+
+        Parameters:
+        features (pd.DataFrame): A DataFrame containing feature information. The structure of the DataFrame can vary:
+                                 - If it has 1 column, it contains either gene IDs or gene names.
+                                 - If it has 2 columns, it contains gene IDs and gene names.
+                                 - If it has 3 columns, it contains gene IDs, gene names, and feature types.
+                                 The index of the DataFrame can also be used to determine gene IDs or gene names.
+        matrix (pd.DataFrame): A DataFrame representing the gene expression matrix. Used to determine the number of features.
+
+        Returns:
+        tuple: A tuple containing three lists:
+               - gene_ids (list): A list of gene IDs.
+               - gene_names (list): A list of gene names.
+               - features_type (list): A list of feature types, defaulting to "Gene Expression" if not provided.
+        """
         features_type = ["Gene Expression"] * matrix.shape[0]
         gene_ids = [""] * matrix.shape[0]
         gene_names = [""] * matrix.shape[0]
@@ -374,6 +558,24 @@ class Converter:
         return gene_ids, gene_names, features_type
 
     def mtx_to_h5(self):
+        """
+        Converts a Matrix Market file to an HDF5 file.
+
+        This method reads a Matrix Market file, processes its contents, and writes the data to an HDF5 file. The HDF5 file will contain the matrix data, barcodes, and features.
+
+        Raises:
+            FileExistsError: If the HDF5 file already exists and the `force` flag is not set.
+            Exception: If any error occurs during the file processing or writing.
+
+        Returns:
+            bool: True if the conversion is successful.
+
+        Notes:
+            - The method will create the output directory if it does not exist.
+            - If the `force` flag is set and the HDF5 file already exists, the existing file will be overwritten.
+            - The method uses gzip compression for the HDF5 datasets.
+        """
+
         def create_h5_dataset(
             h5_file,
             name,
@@ -385,6 +587,21 @@ class Converter:
             compression="gzip",
             compression_opts=1,
         ):
+            """
+            Helper function to create a dataset in an HDF5 file.
+
+            Parameters:
+                h5_file (h5py.File): The HDF5 file object where the dataset will be created.
+                name (str): The name of the dataset to create.
+                data (array-like): The data to store in the dataset.
+                dtype (str or numpy.dtype): The data type of the dataset.
+                maxshape (tuple or None, optional): The maximum shape of the dataset. Default is (None,).
+                compression (str, optional): The compression strategy. Default is "gzip".
+                compression_opts (int, optional): The compression level. Default is 1.
+
+            Returns:
+                None
+            """
             h5_file.create_dataset(
                 name,
                 data=data,
@@ -507,6 +724,19 @@ class Converter:
         return True
 
     def mtx_to_anndata(self):
+        """
+        Converts a matrix market file to an AnnData object and saves it as a .h5ad file.
+
+        This method reads in a matrix market file, extracts features, and converts the data into an AnnData object.
+        The resulting AnnData object is then saved to the specified output directory in .h5ad format.
+
+        Raises:
+            FileExistsError: If the output file already exists and the force flag is not set.
+            Exception: If any other error occurs during the process.
+
+        Returns:
+            bool: True if the conversion and saving process is successful.
+        """
         feats, barcodes, matrix, _ = self.read_in_mtx()
         self.create_output_dir()
         try:
@@ -542,6 +772,20 @@ class Converter:
         return True
 
     def mtx_to_csv(self):
+        """
+        Converts a matrix market file to CSV format and saves it to the output directory.
+
+        This method reads in a matrix market file, converts it to a dense pandas DataFrame,
+        and then saves the DataFrame to a CSV file. It also saves the features to a separate
+        CSV file. If the output files already exist and the `force` attribute is not set to True,
+        a FileExistsError is raised.
+
+        Returns:
+            bool: True if the conversion and saving were successful.
+
+        Raises:
+            FileExistsError: If the output CSV files already exist and `force` is not set to True.
+        """
         features, barcodes, matrix, mtx_feats = self.read_in_mtx()
         # borrowing heuristic from 10X for scaling of memory usage from matrix size:
         # https://github.com/10XGenomics/cellranger/blob/main/lib/python/cellranger/h5_constants.py
@@ -573,6 +817,20 @@ class Converter:
 
     # could handle both tsv and csv here. xsv?
     def csv_to_mtx(self):
+        """
+        Converts a CSV file to Matrix Market (MTX) format along with features and barcodes files.
+
+        This method reads a CSV file, processes it, and writes the data into three files:
+        - matrix.mtx.gz: The matrix in Matrix Market format, compressed with gzip.
+        - features.tsv.gz: A TSV file containing gene IDs, gene names, and feature types, compressed with gzip.
+        - barcodes.tsv.gz: A TSV file containing barcodes, compressed with gzip.
+
+        Raises:
+            FileExistsError: If any of the output files already exist and the `force` flag is not set.
+
+        Returns:
+            bool: True if the conversion is successful.
+        """
         self.read_in_csv()
 
         mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
@@ -613,6 +871,18 @@ class Converter:
         return True
 
     def h5_to_mtx(self):
+        """
+        Converts an HDF5 file to Matrix Market (MTX) format along with features and barcodes TSV files.
+
+        This method reads data from an HDF5 file, processes it, and writes the output to Matrix Market (MTX) format.
+        It also generates corresponding features and barcodes TSV files.
+
+        Raises:
+            FileExistsError: If the output files already exist and the `force` flag is not set.
+
+        Returns:
+            bool: True if the conversion is successful.
+        """
         self.read_in_h5()
 
         mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
