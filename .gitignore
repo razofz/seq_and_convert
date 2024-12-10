@@ -178,3 +178,10 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 .DS_Store
+test_files
+.RData
+.Rhistory
+RD_files
+RDS_files
+sandbox
+output

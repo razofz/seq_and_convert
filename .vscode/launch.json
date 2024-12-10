@@ -5,9 +5,9 @@
             "type": "debugpy",
             "request": "launch",
             "name": "Debug csv to mtx",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/seq_and_convert.py",
             "args": [
-                "test_files/pbmc1k_subset.csv",
+                "test_seq_and_convert/pbmc3k_subset.csv",
                 "-d",
                 "sandbox/debug",
                 "--from",
@@ -21,7 +21,7 @@
             "type": "debugpy",
             "request": "launch",
             "name": "Debug mtx to csv",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/seq_and_convert.py",
             "args": [
                 "data/pbmc_1k/filtered_feature_bc_matrix",
                 "-d",
@@ -36,9 +36,9 @@
             "type": "debugpy",
             "request": "launch",
             "name": "Debug csv to h5",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/seq_and_convert.py",
             "args": [
-                "test_files/pbmc1k_subset.csv",
+                "test_seq_and_convert/pbmc3k_subset.csv",
                 "-d",
                 "sandbox/debug",
                 "--from",
@@ -52,7 +52,7 @@
             "type": "debugpy",
             "request": "launch",
             "name": "Debug mtx to h5",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/seq_and_convert.py",
             "args": [
                 "data/pbmc_1k/filtered_feature_bc_matrix",
                 "-d",
@@ -68,9 +68,9 @@
             "type": "debugpy",
             "request": "launch",
             "name": "Debug h5 to mtx",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/seq_and_convert.py",
             "args": [
-                "sandbox/pbmc1k_subset.h5",
+                "sandbox/pbmc3k_subset.h5",
                 "-d",
                 "sandbox/debug",
                 "--from",
@@ -84,9 +84,9 @@
             "type": "debugpy",
             "request": "launch",
             "name": "Debug mtx to anndata",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/seq_and_convert.py",
             "args": [
-                "test_files/pbmc1k_subset",
+                "test_seq_and_convert/pbmc3k_subset",
                 "-d",
                 "sandbox/debug",
                 "--from",
@@ -94,6 +94,17 @@
                 "--to",
                 "h5ad",
                 "--force"
+            ]
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Debug test function",
+            "program": "/Users/raz/mambaforge/envs/seq_and_convert/bin/pytest",
+            "args": [
+                ".",
+                "-k",
+                "test_extract_features_single_column_gene_ids",
             ]
         },
         {
