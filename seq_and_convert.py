@@ -1,6 +1,7 @@
 import json
 import mimetypes
 from pathlib import Path
+import re
 
 import h5py
 import shutil
@@ -506,55 +507,55 @@ class Converter:
             ):
                 if features.index[0].startswith("ENS"):
                     gene_ids = features.index.to_list()
-                    gene_names = features[0].to_list()
+                    gene_names = features[features.columns[0]].to_list()
                 else:
                     gene_names = features.index.to_list()
-                    gene_ids = features[0].to_list()
+                    gene_ids = features[features.columns[0]].to_list()
             else:
                 if features.iloc[0, 0].startswith("ENS"):
-                    gene_ids = features[0].to_list()
+                    gene_ids = features[features.columns[0]].to_list()
                 else:
-                    gene_names = features[0].to_list()
+                    gene_names = features[features.columns[0]].to_list()
         elif features.shape[1] == 2:
             if pd.api.types.is_dtype_equal(
                 features.index.dtype, pd.api.types.pandas_dtype("object")
             ):
                 if features.index[0].startswith("ENS"):
                     gene_ids = features.index.to_list()
-                    gene_names = features[0].to_list()
-                    features_type = features[1].to_list()
+                    gene_names = features[features.columns[0]].to_list()
+                    features_type = features[features.columns[1]].to_list()
                 else:
                     gene_names = features.index.to_list()
-                    gene_ids = features[0].to_list()
-                    features_type = features[1].to_list()
+                    gene_ids = features[features.columns[0]].to_list()
+                    features_type = features[features.columns[1]].to_list()
             else:
                 if features.iloc[0, 0].startswith("ENS"):
-                    gene_ids = features[0].to_list()
-                    gene_names = features[1].to_list()
+                    gene_ids = features[features.columns[0]].to_list()
+                    gene_names = features[features.columns[1]].to_list()
                 else:
-                    gene_names = features[0].to_list()
-                    gene_ids = features[1].to_list()
+                    gene_names = features[features.columns[0]].to_list()
+                    gene_ids = features[features.columns[1]].to_list()
         elif features.shape[1] == 3:
             if pd.api.types.is_dtype_equal(
                 features.index.dtype, pd.api.types.pandas_dtype("object")
             ):
                 if features.index[0].startswith("ENS"):
                     gene_ids = features.index.to_list()
-                    gene_names = features[0].to_list()
-                    features_type = features[1].to_list()
+                    gene_names = features[features.columns[0]].to_list()
+                    features_type = features[features.columns[1]].to_list()
                 else:
                     gene_names = features.index.to_list()
-                    gene_ids = features[0].to_list()
-                    features_type = features[1].to_list()
+                    gene_ids = features[features.columns[0]].to_list()
+                    features_type = features[features.columns[1]].to_list()
             else:
                 if features.iloc[0, 0].startswith("ENS"):
-                    gene_ids = features[0].to_list()
-                    gene_names = features[1].to_list()
-                    features_type = features[2].to_list()
+                    gene_ids = features[features.columns[0]].to_list()
+                    gene_names = features[features.columns[1]].to_list()
+                    features_type = features[features.columns[2]].to_list()
                 else:
-                    gene_names = features[0].to_list()
-                    gene_ids = features[1].to_list()
-                    features_type = features[2].to_list()
+                    gene_names = features[features.columns[0]].to_list()
+                    gene_ids = features[features.columns[1]].to_list()
+                    features_type = features[features.columns[2]].to_list()
         return gene_ids, gene_names, features_type
 
     def mtx_to_h5(self):
@@ -845,10 +846,14 @@ class Converter:
                     f"File {p} already exists. Use --force/-f to overwrite."
                 )
 
+        pattern = re.compile(r"^[AGCT\d-]+$")
+        if all(pattern.fullmatch(s) for s in self.matrix.index):
+            # the indices contain the barcodes, so we need to transpose
+            self.matrix = self.matrix.T
         features_type = ["Gene Expression"] * self.matrix.shape[0]
-        gene_ids = self.matrix.index
-        gene_names = self.matrix.index
-        
+        gene_ids = self.matrix.index.tolist()
+        gene_names = self.matrix.index.tolist()
+
         mmwrite(target=mtx_path, a=coo_matrix(self.matrix))
         with open(mtx_path, "rb") as f_in:
             with gzip.open(Path(str(mtx_path) + ".gz"), "wb") as f_out:
@@ -934,7 +939,7 @@ class Converter:
             feature_dict["feature_type"] = feat_type
         if genome is not None:
             feature_dict["genome"] = genome
-        
+
         if feature_dict["id"] is None:
             feature_dict["id"] = feature_dict["name"]
         if feature_dict["name"] is None:
