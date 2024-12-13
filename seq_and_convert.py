@@ -14,6 +14,7 @@ import os
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix, csc_matrix
 from typing_extensions import Annotated
+import getpass
 
 app = typer.Typer()
 
@@ -962,6 +963,84 @@ class Converter:
             f.write(
                 "\n".join([bc for bc in self.matrix["matrix/barcodes"][:].astype(str)])
             )
+        return True
+
+    def xsv_to_seurat_object(self):
+        """
+        Converts a CSV/TSV file to a Seurat object and saves it as an RDS file.
+
+        This method reads in a CSV/TSV file, processes it, and converts the data into a Seurat object.
+        The resulting Seurat object is then saved to the specified output directory in .rds format.
+
+        Raises:
+            FileExistsError: If the output file already exists and the force flag is not set.
+            Exception: If any other error occurs during the process.
+
+        Returns:
+            bool: True if the conversion and saving process is successful.
+        """
+        indices, colnames = self.read_in_xsv()
+        if indices is not None:
+            have_indices = True
+        if colnames is not None:
+            have_colnames = True
+        mat = csc_matrix(self.matrix)
+        del self.matrix
+
+        self.create_output_dir()
+        try:
+            if getpass.getuser() == "mambauser":
+                from rpy2.robjects import numpy2ri, r
+                from rpy2.robjects.packages import importr
+                import numpy as np
+                import rpy2.robjects as ro
+                from scipy.sparse import find
+
+                base = importr("base")
+                Matrix = importr("Matrix")
+                seurat = importr("Seurat")
+                seuratobject = importr("SeuratObject")
+                # Get components of sparse matrix
+                # i = mat.indices
+                # j = mat.indptr
+                # x = mat.data
+                dims = list(mat.shape)
+                ijx = find(mat)
+                i = ijx[0].tolist()
+                j = ijx[1].tolist()
+                x = ijx[2].tolist()
+
+                r_sparse = Matrix.sparseMatrix(
+                    i=i,
+                    # i=ro.vectors.IntVector(i),
+                    j=j,
+                    # j=ro.vectors.IntVector(j),
+                    x=x,
+                    # x=ro.vectors.FloatVector(x),
+                    dims=base.as_integer(dims),
+                )
+
+                sobj = seuratobject.CreateSeuratObject(r_sparse)
+                seurat_path = Path(self.output_dir) / Path(
+                    Path(self.filename).stem + ".rds"
+                )
+                if Path(seurat_path).exists():
+                    if self.force:
+                        os.remove(seurat_path)
+                    else:
+                        raise FileExistsError
+                seurat_obj = SeuratObject()
+                seurat_obj.data = self.matrix
+                seurat_obj.write(seurat_path)
+        except FileExistsError as e:
+            print(
+                f"File {seurat_path} already exists."
+                + " Select a different output directory or use --force/-f."
+            )
+            raise e
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
         return True
 
 
