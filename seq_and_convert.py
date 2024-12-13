@@ -45,21 +45,21 @@ class Converter:
         convert():
             Converts data from one format to another.
         read_in_mtx():
-        read_in_csv():
+        read_in_xsv():
         read_in_h5():
         create_output_dir(directory=None):
-        csv_to_h5():
-            Converts a CSV file to an HDF5 file.
+        xsv_to_h5():
+            Converts a CSV/TSV file to an HDF5 file.
         extract_features(features, matrix):
             Extracts features from the given features DataFrame and matrix.
         mtx_to_h5():
             Converts a matrix market (MTX) file to an HDF5 file.
         mtx_to_anndata():
             Converts a matrix market (MTX) file to an AnnData (H5AD) file.
-        mtx_to_csv():
-            Converts a matrix market (MTX) file to a CSV file.
-        csv_to_mtx():
-            Converts a CSV file to a matrix market (MTX) file.
+        mtx_to_xsv():
+            Converts a matrix market (MTX) file to a CSV/TSV file.
+        xsv_to_mtx():
+            Converts a CSV/TSV file to a matrix market (MTX) file.
         h5_to_mtx():
             Converts an HDF5 file to a matrix market (MTX) file.
     """
@@ -228,9 +228,9 @@ class Converter:
         The function responsible for converting data from one format to another.
 
         Supported conversions:
-        - CSV to MTX
-        - MTX to CSV
-        - CSV to H5
+        - CSV/TSV to MTX
+        - MTX to CSV/TSV
+        - CSV/TSV to H5
         - MTX to H5
         - H5 to MTX
         - MTX to H5AD
@@ -241,12 +241,12 @@ class Converter:
         Returns:
             The result of the conversion method corresponding to the specified formats.
         """
-        if self.from_format == "csv" and self.to_format == "mtx":
-            return self.csv_to_mtx()
-        elif self.from_format == "mtx" and self.to_format == "csv":
-            return self.mtx_to_csv()
-        elif self.from_format == "csv" and self.to_format == "h5":
-            return self.csv_to_h5()
+        if self.from_format in ["tsv", "csv"] and self.to_format == "mtx":
+            return self.xsv_to_mtx()
+        elif self.from_format == "mtx" and self.to_format in ["tsv", "csv"]:
+            return self.mtx_to_xsv()
+        elif self.from_format in ["tsv", "csv"] and self.to_format == "h5":
+            return self.xsv_to_h5()
         elif self.from_format == "mtx" and self.to_format == "h5":
             return self.mtx_to_h5()
         elif self.from_format == "h5" and self.to_format == "mtx":
@@ -307,11 +307,11 @@ class Converter:
                 mtx_feats = features[0]
         return features, barcodes, matrix, mtx_feats
 
-    def read_in_csv(self):
+    def read_in_xsv(self, separator=","):
         """
-        Reads a CSV file into a pandas DataFrame and performs necessary checks and adjustments.
+        Reads a CSV/TSV file into a pandas DataFrame and performs necessary checks and adjustments.
 
-        This method attempts to read a CSV file specified by `self.filename` into `self.matrix`.
+        This method attempts to read a CSV/TSV file specified by `self.filename` into `self.matrix`.
         It handles potential issues such as:
         - The entire DataFrame being read as object type, indicating a possible header row issue.
         - The first column being read as row names/index, indicating a possible index column issue.
@@ -321,7 +321,7 @@ class Converter:
             ValueError: If non-unique column names are detected, indicating potential issues with cell barcodes.
         """
         try:
-            self.matrix = pd.read_csv(self.filename)
+            self.matrix = pd.read_csv(self.filename, sep=separator)
         except Exception as e:
             print(f"Error: {e}")
         # pot. unnecessary all if case, let's see
@@ -409,11 +409,11 @@ class Converter:
                 )
                 raise e
 
-    def csv_to_h5(self):
+    def xsv_to_h5(self, separator=","):
         """
-        Converts a CSV file to an HDF5 file.
+        Converts a CSV/TSV file to an HDF5 file.
 
-        This method reads a CSV file, converts its contents to a sparse matrix,
+        This method reads a CSV/TSV file, converts its contents to a sparse matrix,
         and saves the matrix and its metadata to an HDF5 file. The output file
         will be saved in the specified output directory with the same name as
         the input file but with an .h5 extensionnstead of a .csv one.
@@ -426,7 +426,7 @@ class Converter:
         Returns:
             bool: True if the conversion is successful.
         """
-        self.read_in_csv()
+        self.read_in_xsv(separator=separator)
 
         h5_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".h5")
         if not self.force and Path(h5_path).exists():
@@ -772,20 +772,20 @@ class Converter:
             raise e
         return True
 
-    def mtx_to_csv(self):
+    def mtx_to_xsv(self, separator=","):
         """
-        Converts a matrix market file to CSV format and saves it to the output directory.
+        Converts a matrix market file to CSV/TSV format and saves it to the output directory.
 
         This method reads in a matrix market file, converts it to a dense pandas DataFrame,
-        and then saves the DataFrame to a CSV file. It also saves the features to a separate
-        CSV file. If the output files already exist and the `force` attribute is not set to True,
+        and then saves the DataFrame to a CSV/TSV file. It also saves the features to a separate
+        CSV/TSV file. If the output files already exist and the `force` attribute is not set to True,
         a FileExistsError is raised.
 
         Returns:
             bool: True if the conversion and saving were successful.
 
         Raises:
-            FileExistsError: If the output CSV files already exist and `force` is not set to True.
+            FileExistsError: If the output CSV/TSV files already exist and `force` is not set to True.
         """
         features, barcodes, matrix, mtx_feats = self.read_in_mtx()
         # borrowing heuristic from 10X for scaling of memory usage from matrix size:
@@ -797,31 +797,36 @@ class Converter:
             matrix.todense(), columns=barcodes[0].tolist(), index=mtx_feats
         )
         self.create_output_dir()
-        csv_path = Path(self.output_dir) / Path(Path(self.filename).stem + ".csv")
+        if separator == ",":
+            filetype = ".csv"
+        elif separator == "\t":
+            filetype = ".tsv"
+        xsv_path = Path(self.output_dir) / Path(Path(self.filename).stem + filetype)
+
         features_path = Path(self.output_dir) / Path(
             Path(self.filename).stem + "_" + "features.csv"
         )
-        if not self.force and Path(csv_path).exists():
+        if not self.force and Path(xsv_path).exists():
             raise FileExistsError(
-                f"File {csv_path} already exists. Use --force/-f to overwrite."
+                f"File {xsv_path} already exists. Use --force/-f to overwrite."
             )
         if not self.force and Path(features_path).exists():
             raise FileExistsError(
                 f"File {features_path} already exists. Use --force/-f to overwrite."
             )
-        df.to_csv(csv_path)
+        df.to_csv(xsv_path, sep=separator)
         features.to_csv(
             features_path,
             index=False,
+            sep=separator,
         )
         return True
 
-    # could handle both tsv and csv here. xsv?
-    def csv_to_mtx(self):
+    def xsv_to_mtx(self, separator=","):
         """
-        Converts a CSV file to Matrix Market (MTX) format along with features and barcodes files.
+        Converts a CSV/TSV file to Matrix Market (MTX) format along with features and barcodes files.
 
-        This method reads a CSV file, processes it, and writes the data into three files:
+        This method reads a CSV/TSV file, processes it, and writes the data into three files:
         - matrix.mtx.gz: The matrix in Matrix Market format, compressed with gzip.
         - features.tsv.gz: A TSV file containing gene IDs, gene names, and feature types, compressed with gzip.
         - barcodes.tsv.gz: A TSV file containing barcodes, compressed with gzip.
@@ -832,7 +837,7 @@ class Converter:
         Returns:
             bool: True if the conversion is successful.
         """
-        self.read_in_csv()
+        self.read_in_xsv(separator=separator)
 
         mtx_output_dir = Path(self.output_dir) / Path(Path(self.filename).stem)
         self.create_output_dir(mtx_output_dir)
