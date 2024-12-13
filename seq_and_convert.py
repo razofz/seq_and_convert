@@ -324,16 +324,20 @@ class Converter:
             self.matrix = pd.read_csv(self.filename, sep=separator)
         except Exception as e:
             print(f"Error: {e}")
+        indices = None
+        colnames = None
         # pot. unnecessary all if case, let's see
         if (self.matrix.dtypes == object).any():
             if (self.matrix.dtypes == object).all():
                 # probably a header row read in as first row, redo
                 self.matrix = pd.read_csv(self.filename, header=0)
+                colnames = self.matrix.columns
             elif pd.api.types.is_dtype_equal(
                 self.matrix.dtypes.iloc[0], pd.api.types.pandas_dtype("object")
             ):
                 # probably rownames/index read in as first column, redo
                 self.matrix = pd.read_csv(self.filename, index_col=0)
+                indices = self.matrix.index.tolist()
         for i in range(len(self.matrix.columns)):
             for j in range(len(self.matrix.columns)):
                 if i != j:
@@ -344,6 +348,7 @@ class Converter:
                             + f"Column {j}: {self.matrix.columns[j]}"
                         )
                         # just the first case of identical barcodes for now
+        return indices, colnames
 
     def read_in_h5(self):
         """
