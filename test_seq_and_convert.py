@@ -56,6 +56,8 @@ def test_converter_decide_filetype(mimetypes_table, datadir):
 def test_converter_decide_filetype_fake_files(datadir):
     c = Converter(datadir / "fake_csv.csv", "csv", "mtx")
     assert c.decide_filetype() is None
+    c = Converter(datadir / "fake_tsv.tsv", "tsv", "mtx")
+    assert c.decide_filetype() is None
 
 
 def test_converter_convert_csv_to_mtx(tmp_path, datadir):
@@ -123,6 +125,35 @@ def test_converter_convert_mtx_to_csv(tmp_path, datadir):
     )
 
 
+def test_converter_convert_mtx_to_tsv(tmp_path, datadir):
+    assert (
+        Converter(
+            datadir / "pbmc3k_subset",
+            from_format="mtx",
+            to_format="tsv",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            datadir / "pbmc3k_subset",
+            from_format="mtx",
+            to_format="tsv",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            datadir / "pbmc3k_subset",
+            from_format="mtx",
+            to_format="tsv",
+            output_dir=tmp_path,
+            force=True,
+        ).convert()
+        is True
+    )
+
+
 def test_converter_convert_csv_to_h5(tmp_path, datadir):
     with pytest.raises(ValueError):
         Converter(
@@ -150,6 +181,40 @@ def test_converter_convert_csv_to_h5(tmp_path, datadir):
     c = Converter(
         datadir / "pbmc3k_subset.csv",
         from_format="csv",
+        to_format="h5",
+        output_dir=tmp_path,
+        force=True,
+    )
+    assert c.convert() is True
+
+
+def test_converter_convert_tsv_to_h5(tmp_path, datadir):
+    with pytest.raises(ValueError):
+        Converter(
+            datadir / "pbmc3k_subset_identical_colnames.csv",
+            from_format="tsv",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+    assert (
+        Converter(
+            datadir / "pbmc3k_subset.csv",
+            from_format="tsv",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+        is True
+    )
+    with pytest.raises(FileExistsError):
+        Converter(
+            datadir / "pbmc3k_subset.csv",
+            from_format="tsv",
+            to_format="h5",
+            output_dir=tmp_path,
+        ).convert()
+    c = Converter(
+        datadir / "pbmc3k_subset.csv",
+        from_format="tsv",
         to_format="h5",
         output_dir=tmp_path,
         force=True,
@@ -189,6 +254,17 @@ def csv_to_h5_converter(tmp_path, datadir):
     return Converter(
         datadir / "pbmc3k_subset.csv",
         from_format="csv",
+        to_format="h5",
+        output_dir=tmp_path,
+        force=True,
+    )
+
+
+@pytest.fixture
+def tsv_to_h5_converter(tmp_path, datadir):
+    return Converter(
+        datadir / "pbmc3k_subset.tsv",
+        from_format="tsv",
         to_format="h5",
         output_dir=tmp_path,
         force=True,

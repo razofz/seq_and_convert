@@ -24,11 +24,15 @@ sanity_check = df.apply(sum, axis=1)
 # make sure there aren't only zeroes in the df
 assert sanity_check[(sanity_check != 0)].shape != (0,)
 df.to_csv(Path(out_dir / "pbmc3k_subset.csv"))
+df.to_csv(Path(out_dir / "pbmc3k_subset.tsv"), sep="\t")
 df.transpose().to_csv(Path(out_dir / "pbmc3k_subset_transposed.csv"))
+df.transpose().to_csv(Path(out_dir / "pbmc3k_subset_transposed.tsv"), sep="\t")
 df.iloc[:0].to_csv(Path(out_dir / "pbmc3k_empty.csv"))
+df.iloc[:0].to_csv(Path(out_dir / "pbmc3k_empty.tsv"), sep="\t")
 tamper = df.copy()
 tamper.columns = list(tamper.columns[:10]) * 10
 tamper.to_csv(Path(out_dir / "pbmc3k_subset_identical_colnames.csv"))
+tamper.to_csv(Path(out_dir / "pbmc3k_subset_identical_colnames.tsv"), sep="\t")
 
 Path.mkdir(Path(out_dir / "pbmc3k_subset"), parents=True, exist_ok=True)
 mtx_path = Path(out_dir / "pbmc3k_subset" / "matrix.mtx")
@@ -71,6 +75,7 @@ pd.DataFrame(df.index).to_csv(
 #             g.write(f.read())
 
 Path(out_dir / "fake_csv.csv").touch()
+Path(out_dir / "fake_tsv.tsv").touch()
 
 Path.mkdir(Path(out_dir / "false_gzipped_mtx"), parents=True, exist_ok=True)
 for file in ["features.tsv", "barcodes.tsv", "matrix.mtx"]:
