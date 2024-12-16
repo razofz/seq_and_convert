@@ -1,0 +1,52 @@
+[project]
+name = "seq-and-convert"
+version = "0.1.0"
+description = "CLI conversion between single-cell RNA-sequencing file formats."
+authors = [
+    { name="razofz", email="rasmus.olofzon@gmail.com" },
+]
+# license = "LICENSE"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "anndata >=0.10",
+    "h5py >=3.12.1",
+    "ipykernel",
+    "ipython",
+    "isort",
+    "pandas >=2.2.3",
+    "pytest",
+    "pytest-datadir",
+    "python-magic >=0.4.27",
+    "rpy2",
+    "scanpy >=1.10.3",
+    "scipy >=1.14.1",
+    "typer",
+    "typing_extensions",
+]
+
+# [build-system]
+# requires = ["flit_core>=3.3"]
+# build-backend = "flit_core.buildapi"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+saq="seq_and_convert.cli:app"
+
+[tool.hatch.build.targets.sdist]
+ignore-vcs = true
+exclude = [
+  "sandbox",
+  "data",
+  "output",
+  "raw_feature_bc_matrix",
+  "RDS_files",
+  "seq_and_convert.py",
+  "test_files",
+  "tmp",
+  "venv",
+]
