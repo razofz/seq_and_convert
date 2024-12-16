@@ -13,4 +13,8 @@ Vision is for usage in the style of:
 
 This could then be used directly or utilised by toolkits, pipelines etc.
 
+Quick demo of the package:
+
+[![asciicast](https://asciinema.org/a/4LbQewj02lsKcqXuULXchfEXc.svg)](https://asciinema.org/a/4LbQewj02lsKcqXuULXchfEXc)
+
 _(The working title for the tool is loosely based, I guess, on Seek and Destroy by Metallica. No guarantees for keeping it.)_
