@@ -14,7 +14,7 @@ import scanpy as sc
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
-from seq_and_convert import Converter
+from seq_and_convert.core import Converter
 
 
 @pytest.fixture(scope="module")
